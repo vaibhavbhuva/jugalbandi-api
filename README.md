@@ -59,12 +59,138 @@ Once the above installation steps are completed, run the following command in ho
 uvicorn main:app
 ```
 
-# 🚀 3. Deployment
+# 📃 3. API Specification and Documentation
+
+
+### `POST /upload-files`
+
+Returns an UUID number for a set of documents uploaded
+
+#### Request
+
+Requires a description(string) and at least one file(currently only PDF & txt files) for uploading.
+
+#### Successful Response
+
+```json
+{
+   "uuid_number": "<36-character string>", 
+   "message": "Files uploading is successful"
+}
+```
+
+#### What happens during the API call?
+
+Once the API is hit with proper request parameters, an uuid_number is created and the files are uploaded to the GCP bucket with the uuid_number as folder name. Immediately after this process, indexing of the files happen. Two types of indexing happen - one for gpt-index and the other for langchain. The two indexing processes produce three index files - index.json, index.faiss and index.pkl. These index files are again uploaded to the same GCP bucket folder for using them during query time.
+
+---
+
+### `GET /query-with-gptindex`
+
+#### Request
+
+Requires an uuid_number(string) and query_string(string).
+
+#### Successful Response
+
+```json
+{
+  "query": "<your-given-query>",
+  "answer": "<paraphrased-response>",
+  "source_text": "<source-text-from-which-answer-is-paraphrased>"
+}
+```
+
+#### What happens during the API call?
+
+Once the API is hit with proper request parameters, the **index.json** file is fetched from the GCP bucket provided the uuid_number given is correct. Once the **index.json** is successfully fetched, it is then used to answer the query given by the user.
+
+---
+
+### `GET /query-with-langchain` (Same as /query-with-gptindex)
+
+#### Request
+
+Requires an uuid_number(string) and query_string(string).
+
+#### Successful Response
+
+```json
+{
+  "query": "<your-given-query>",
+  "answer": "<paraphrased-response>",
+  "source_text": "<source-text-from-which-answer-is-paraphrased>"
+}
+```
+
+#### What happens during the API call?
+
+Once the API is hit with proper request parameters, the **index.faiss** and **index.pkl** files are fetched from the GCP bucket provided the uuid_number given is correct. Once the index files are successfully fetched, they are then used to answer the query given by the user.
+
+---
+
+### `GET /query-using-voice`
+
+#### Request
+
+Requires an uuid_number(string), input_language(Selection - English, Hindi, Kannada) and output_format(Selection - Text, Voice).
+
+Either of the query_text(string) or audio_url(string) should be present. If both the values are given, query_text is taken for consideration. Another requirement is that the input_language should be same as the one given in query_text and audio_url (i.e, if you select English in input_language, then your query_text and audio_url should contain queries in English). The audio_url should be publicly downloadable, otherwise the audio_url will not work.
+
+#### Successful Response
+
+```json
+{
+  "query": "<query-in-given-language>",
+  "query_in_english": "<query-in-english>",
+  "answer": "<paraphrased-answer-in-given-language>",
+  "answer_in_english": "<paraphrased-answer-in-english>",
+  "audio_output_url": "<publicly-downloadable-audio-output-url-in-given-language>",
+  "source_text": "<source-text-from-which-answer-is-paraphrased-in-english>"
+}
+```
+
+#### What happens during the API call?
+
+Once the API is hit with proper request parameters, it is then checked for the presence of query_text. 
+
+If query_text is present, the translation of query_text based on input_language is done. Then the translated query_text is given to langchain model which does the same work as `/query-with-langchain` endpoint. Then the paraphrased answer is again translated back to input_language. If the output_format is voice, the translated paraphrased answer is then converted to a mp3 file and uploaded to a GCP folder and made public.
+
+If the query_text is absent and audio_url is present, then the audio url is downloaded and converted into text based on the input_language. Once speech to text conversion in input_language is finished, the same process mentioned above happens. One difference is that by default, the paraphrased answer is converted to voice irrespective of the output_format since the input_format is voice.
+
+---
+
+
+### `GET /query-with-langchain-gpt4` (Same as /query-with-langchain)
+
+#### Request
+
+Requires an uuid_number(string) and query_string(string).
+
+#### Successful Response
+
+```json
+{
+  "query": "<your-given-query>",
+  "answer": "<response>",
+  "source_text": ""
+}
+```
+
+#### What happens during the API call?
+
+Once the API is hit with proper request parameters, the **index.faiss** and **index.pkl** files are fetched from the GCP bucket provided the uuid_number given is correct. Once the index files are successfully fetched, they are then used to answer the query given by the user.
+
+One major difference here is that this api uses GPT4 model for querying process, hence the answer will not be paraphrased on most cases and precisely that is why the source_text will be empty in the response since we get the actual source_text present in the document as the answer in response.
+
+---
+
+# 🚀 4. Deployment
 
 This repository comes with a Dockerfile. You can use this dockerfile to deploy your version of this application to Cloud Run.
 Make the necessary changes to your dockerfile with respect to your new changes. (Note: The given Dockerfile will deploy the base code without any error, provided you added the required environment variables (mentioned in the .env file) to either the Dockerfile or the cloud run revision)
 
-# 👩‍💻 4. Usage
+# 👩‍💻 5. Usage
 
 To directly use the Jugalbandi APIs without cloning the repo, you can follow below steps to get you started:
 

@@ -46,7 +46,7 @@ app = FastAPI(title="Jugalbandi.ai",
                   "name": "MIT License",
                   "url": "https://www.jugalbandi.ai/",
               }, )
-ttl = int(os.environ.get("CACHE_TTL", 60)) 
+ttl = int(os.environ.get("CACHE_TTL", 86400)) 
 cache = TTLCache(maxsize=100, ttl=ttl)
 
 app.add_middleware(
@@ -92,17 +92,47 @@ async def root():
 @app.get("/query-with-gptindex", tags=["Q&A over Document Store"])
 async def query_using_gptindex(uuid_number: str, query_string: str) -> Response:
 
-    lowercase_query_string = query_string.lower()
+    # lowercase_query_string = query_string.lower()
+    # if lowercase_query_string in cache:
+    #     print("Value in cache", lowercase_query_string)
+    #     return cache[lowercase_query_string]
+    # else:
+        # print("Value not in cache", lowercase_query_string)
+        load_dotenv()
+        answer, source_text, error_message, status_code = querying_with_gptindex(uuid_number, query_string)
+        engine = await create_engine()
+        await insert_qa_logs(engine=engine, model_name="gpt-index", uuid_number=uuid_number, query=query_string,
+                            paraphrased_query=None, response=answer, source_text=source_text, error_message=error_message)
+        await engine.close()
+
+        if status_code != 200:
+            print("Error status code", status_code)
+            print("Error message", error_message)
+            raise HTTPException(status_code=status_code, detail=error_message)
+
+        response = Response()
+        response.query = query_string
+        response.answer = answer
+        response.source_text = source_text
+        # cache[lowercase_query_string] = response
+        return response
+
+
+@app.get("/query-with-langchain", tags=["Q&A over Document Store"])
+async def query_using_langchain(uuid_number: str, query_string: str) -> Response:
+    lowercase_query_string = query_string.lower() + uuid_number
     if lowercase_query_string in cache:
         print("Value in cache", lowercase_query_string)
         return cache[lowercase_query_string]
     else:
         print("Value not in cache", lowercase_query_string)
         load_dotenv()
-        answer, source_text, error_message, status_code = querying_with_gptindex(uuid_number, query_string)
+        answer, source_text, paraphrased_query, error_message, status_code = querying_with_langchain(uuid_number,
+                                                                                                    query_string)
         engine = await create_engine()
-        await insert_qa_logs(engine=engine, model_name="gpt-index", uuid_number=uuid_number, query=query_string,
-                            paraphrased_query=None, response=answer, source_text=source_text, error_message=error_message)
+        await insert_qa_logs(engine=engine, model_name="langchain", uuid_number=uuid_number, query=query_string,
+                            paraphrased_query=paraphrased_query, response=answer, source_text=source_text,
+                            error_message=error_message)
         await engine.close()
         if status_code != 200:
             raise HTTPException(status_code=status_code, detail=error_message)
@@ -113,26 +143,6 @@ async def query_using_gptindex(uuid_number: str, query_string: str) -> Response:
         response.source_text = source_text
         cache[lowercase_query_string] = response
         return response
-
-
-@app.get("/query-with-langchain", tags=["Q&A over Document Store"])
-async def query_using_langchain(uuid_number: str, query_string: str) -> Response:
-    load_dotenv()
-    answer, source_text, paraphrased_query, error_message, status_code = querying_with_langchain(uuid_number,
-                                                                                                 query_string)
-    engine = await create_engine()
-    await insert_qa_logs(engine=engine, model_name="langchain", uuid_number=uuid_number, query=query_string,
-                         paraphrased_query=paraphrased_query, response=answer, source_text=source_text,
-                         error_message=error_message)
-    await engine.close()
-    if status_code != 200:
-        raise HTTPException(status_code=status_code, detail=error_message)
-
-    response = Response()
-    response.query = query_string
-    response.answer = answer
-    response.source_text = source_text
-    return response
 
 
 @app.post("/upload-files", tags=["Document Store"])
@@ -288,15 +298,21 @@ async def get_source_document(query_string: str = "", input_language: DropDownIn
 
 @app.get("/query-with-langchain-gpt4", tags=["Q&A over Document Store"])
 async def query_using_langchain_with_gpt4(uuid_number: str, query_string: str) -> Response:
-    load_dotenv()
-    answer, source_text, paraphrased_query, error_message, status_code = querying_with_langchain_gpt4(uuid_number,
-                                                                                                      query_string)
+    lowercase_query_string = query_string.lower() + uuid_number
+    if lowercase_query_string in cache:
+        print("Value in cache", lowercase_query_string)
+        return cache[lowercase_query_string]
+    else:
+        load_dotenv()
+        answer, source_text, paraphrased_query, error_message, status_code = querying_with_langchain_gpt4(uuid_number,
+                                                                                                        query_string)
 
-    if status_code != 200:
-        raise HTTPException(status_code=status_code, detail=error_message)
+        if status_code != 200:
+            raise HTTPException(status_code=status_code, detail=error_message)
 
-    response = Response()
-    response.query = query_string
-    response.answer = answer
-    response.source_text = source_text
-    return response
+        response = Response()
+        response.query = query_string
+        response.answer = answer
+        response.source_text = source_text
+        cache[lowercase_query_string] = response
+        return response

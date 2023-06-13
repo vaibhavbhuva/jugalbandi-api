@@ -231,7 +231,7 @@ async def query_with_voice_input(uuid_number: str, input_language: DropDownInput
 
         if text is not None:
             print(text)
-            answer, source_text, paraphrased_query, error_message, status_code = querying_with_langchain(uuid_number,
+            answer, source_text, paraphrased_query, error_message, status_code = querying_with_langchain_gpt4(uuid_number,
                                                                                                          text)
             if answer is not None:
                 regional_answer, error_message = process_outgoing_text(answer, language)

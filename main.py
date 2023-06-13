@@ -1,6 +1,7 @@
 import os.path
 from enum import Enum
 from typing import List
+from cachetools import TTLCache
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -45,6 +46,8 @@ app = FastAPI(title="Jugalbandi.ai",
                   "name": "MIT License",
                   "url": "https://www.jugalbandi.ai/",
               }, )
+ttl = int(os.environ.get("CACHE_TTL", 60)) 
+cache = TTLCache(maxsize=100, ttl=ttl)
 
 app.add_middleware(
     CORSMiddleware,
@@ -88,20 +91,28 @@ async def root():
 
 @app.get("/query-with-gptindex", tags=["Q&A over Document Store"])
 async def query_using_gptindex(uuid_number: str, query_string: str) -> Response:
-    load_dotenv()
-    answer, source_text, error_message, status_code = querying_with_gptindex(uuid_number, query_string)
-    engine = await create_engine()
-    await insert_qa_logs(engine=engine, model_name="gpt-index", uuid_number=uuid_number, query=query_string,
-                         paraphrased_query=None, response=answer, source_text=source_text, error_message=error_message)
-    await engine.close()
-    if status_code != 200:
-        raise HTTPException(status_code=status_code, detail=error_message)
 
-    response = Response()
-    response.query = query_string
-    response.answer = answer
-    response.source_text = source_text
-    return response
+    lowercase_query_string = query_string.lower()
+    if lowercase_query_string in cache:
+        print("Value in cache", lowercase_query_string)
+        return cache[lowercase_query_string]
+    else:
+        print("Value not in cache", lowercase_query_string)
+        load_dotenv()
+        answer, source_text, error_message, status_code = querying_with_gptindex(uuid_number, query_string)
+        engine = await create_engine()
+        await insert_qa_logs(engine=engine, model_name="gpt-index", uuid_number=uuid_number, query=query_string,
+                            paraphrased_query=None, response=answer, source_text=source_text, error_message=error_message)
+        await engine.close()
+        if status_code != 200:
+            raise HTTPException(status_code=status_code, detail=error_message)
+
+        response = Response()
+        response.query = query_string
+        response.answer = answer
+        response.source_text = source_text
+        cache[lowercase_query_string] = response
+        return response
 
 
 @app.get("/query-with-langchain", tags=["Q&A over Document Store"])

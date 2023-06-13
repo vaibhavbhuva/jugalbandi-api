@@ -8,7 +8,8 @@ RUN apt install build-essential -y
 RUN wget --no-check-certificate https://dl.xpdfreader.com/xpdf-tools-linux-4.04.tar.gz &&  \
     tar -xvf xpdf-tools-linux-4.04.tar.gz && cp xpdf-tools-linux-4.04/bin64/pdftotext /usr/local/bin
 RUN apt-get install ffmpeg -y
-RUN pip3 install requirements-prod.txt
+COPY requirements-prod.txt /root/
+RUN pip3 install -r requirements-prod.txt
 COPY gcp_credentials.json /root/
 COPY ./main.py /root/
 COPY ./query_with_gptindex.py /root/

@@ -82,6 +82,8 @@ class DropDownInputLanguage(str, Enum):
     en = "English"
     hi = "Hindi"
     kn = "Kannada"
+    te = "Telugu"
+    
 
 
 @app.get("/")

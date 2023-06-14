@@ -1,6 +1,6 @@
 import requests
 
-url = 'http://127.0.0.1:8000/query-with-langchain-gpt4'
+url = 'http://127.0.0.1:8000/query-with-langchain-gpt4_streaming'
 params = {
     'uuid_number': '42d4634a-09c9-11ee-b47a-0d5cda16a4a6',
     'query_string': 'why QuML'

@@ -14,6 +14,8 @@ from fastapi.responses import StreamingResponse
 from fastapi.responses import Response
 import logging
 import aiohttp
+from sse_starlette.sse import EventSourceResponse
+
 
 logger = logging.getLogger("MyLogger")
 
@@ -117,11 +119,13 @@ def querying_with_langchain_gpt4(uuid_number, query):
                 for chunk in response:
                     print(chunk)
                     # chunk_message = chunk['choices'][0]['delta']['content']
+                    # chunk_message = chunk["choices"][0].get("delta", {}).get("content", '')
                     chunk_message = chunk["choices"][0].get("delta", {}).get("content", '')
                     yield chunk_message
 
             # Return a StreamingResponse with the generated messages
-            return StreamingResponse(generate_messages(), media_type="text/plain")
+            return EventSourceResponse(generate_messages(), headers={"Content-Type":"application/json"})
+            # application/json
 
         except openai.error.RateLimitError as e:
             error_message = f"OpenAI API request exceeded rate limit: {e}"

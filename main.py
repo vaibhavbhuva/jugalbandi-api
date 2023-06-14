@@ -17,7 +17,9 @@ from query_with_tfidf import querying_with_tfidf
 from fastapi.responses import StreamingResponse
 from fastapi.responses import Response
 import aiohttp
+import asyncio
 
+from sse_starlette.sse import EventSourceResponse
 
 api_description = """
 Jugalbandi.ai has a vector datastore that allows you to get factual Q&A over a document set.
@@ -300,7 +302,7 @@ async def get_source_document(query_string: str = "", input_language: DropDownIn
 
 
 @app.get("/query-with-langchain-gpt4", tags=["Q&A over Document Store"])
-async def query_using_langchain_with_gpt4(uuid_number: str, query_string: str) -> StreamingResponse:
+async def query_using_langchain_with_gpt4(uuid_number: str, query_string: str) -> EventSourceResponse:
     lowercase_query_string = query_string.lower() + uuid_number
     if lowercase_query_string in cache:
         print("Value in cache", lowercase_query_string)
@@ -309,9 +311,11 @@ async def query_using_langchain_with_gpt4(uuid_number: str, query_string: str) -
         load_dotenv()
         response = querying_with_langchain_gpt4(uuid_number, query_string)
 
-        if isinstance(response, StreamingResponse):
+        if isinstance(response, EventSourceResponse):
             # If the response is already a StreamingResponse, return it directly
             return response
+
+        # print(response)
 
         if response.status_code != 200:
         # If there's an error, raise an HTTPException
@@ -321,10 +325,9 @@ async def query_using_langchain_with_gpt4(uuid_number: str, query_string: str) -
         # response_content = await response.content.read()
 
         # Create a StreamingResponse with the response content
-        streaming_response = StreamingResponse(
+        streaming_response = EventSourceResponse(
             response.content,
-            media_type=response.headers.get('content-type', 'text/plain'),
-            status_code=response.status_code
+            headers={"Content-Type":"application/json"}
         )
 
         # Set the response headers

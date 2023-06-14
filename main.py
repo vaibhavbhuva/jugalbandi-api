@@ -14,10 +14,7 @@ import uuid
 import shutil
 from zipfile import ZipFile
 from query_with_tfidf import querying_with_tfidf
-from fastapi.responses import StreamingResponse
 from fastapi.responses import Response
-import aiohttp
-import asyncio
 
 from sse_starlette.sse import EventSourceResponse
 

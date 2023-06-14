@@ -8,12 +8,8 @@ from langchain.vectorstores import FAISS
 from langchain import PromptTemplate, OpenAI, LLMChain
 from cloud_storage import *
 import shutil
-import io
-import json
-from fastapi.responses import StreamingResponse
 from fastapi.responses import Response
 import logging
-import aiohttp
 from sse_starlette.sse import EventSourceResponse
 
 

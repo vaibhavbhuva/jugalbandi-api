@@ -153,7 +153,7 @@ def querying_with_langchain_gpt4_streaming(uuid_number, query):
                     yield chunk_message
 
             # Return a StreamingResponse with the generated messages
-            return EventSourceResponse(generate_messages(), headers={"Content-Type":"application/json"})
+            return EventSourceResponse(generate_messages(), headers={"Content-Type":"text/plain"})
             # application/json
 
         except openai.error.RateLimitError as e:

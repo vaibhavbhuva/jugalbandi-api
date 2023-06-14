@@ -345,7 +345,7 @@ async def query_using_langchain_with_gpt4_streaming(uuid_number: str, query_stri
         # Create a StreamingResponse with the response content
         streaming_response = EventSourceResponse(
             response.content,
-            headers={"Content-Type":"application/json"}
+            headers={"Content-Type":"text/plain"}
         )
 
         # Set the response headers

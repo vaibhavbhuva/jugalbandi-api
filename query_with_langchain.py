@@ -8,7 +8,12 @@ from langchain.vectorstores import FAISS
 from langchain import PromptTemplate, OpenAI, LLMChain
 from cloud_storage import *
 import shutil
+from fastapi.responses import Response
+import logging
+from sse_starlette.sse import EventSourceResponse
 
+
+logger = logging.getLogger("JugalbandiLogger")
 
 def langchain_indexing(uuid_number):
     sources = SimpleDirectoryReader(uuid_number).load_data()
@@ -117,3 +122,56 @@ def querying_with_langchain_gpt4(uuid_number, query):
         error_message = "The UUID number is incorrect"
         status_code = 422
     return None, None, None, error_message, status_code
+
+def querying_with_langchain_gpt4_streaming(uuid_number, query):
+    files_count = read_langchain_index_files(uuid_number)
+    if files_count == 2:
+        try:
+            search_index = FAISS.load_local(uuid_number, OpenAIEmbeddings())
+            documents = search_index.similarity_search(query, k=5)
+            contexts = [document.page_content for document in documents]
+            augmented_query = "\n\n---\n\n".join(contexts) + "\n\n-----\n\n" + query
+
+            system_rules = "You are a helpful assistant who helps with answering questions based on the provided information. If the information cannot be found in the text provided, you admit that I don't know"
+
+            response = openai.ChatCompletion.create(
+                model='gpt-4',
+                messages=[
+                    {"role": "system", "content": system_rules},
+                    {"role": "user", "content": augmented_query}
+                ],
+                stream=True
+            )
+
+            # Define a generator function to yield each chunk of the response
+            async def generate_messages():
+                for chunk in response:
+                    print(chunk)
+                    # chunk_message = chunk['choices'][0]['delta']['content']
+                    # chunk_message = chunk["choices"][0].get("delta", {}).get("content", '')
+                    chunk_message = chunk["choices"][0].get("delta", {}).get("content", '')
+                    yield chunk_message
+
+            # Return a StreamingResponse with the generated messages
+            return EventSourceResponse(generate_messages(), headers={"Content-Type":"application/json"})
+            # application/json
+
+        except openai.error.RateLimitError as e:
+            error_message = f"OpenAI API request exceeded rate limit: {e}"
+            status_code = 500
+            logger.exception("RateLimitError occurred: %s", e)
+        except (openai.error.APIError, openai.error.ServiceUnavailableError):
+            error_message = "Server is overloaded or unable to answer your request at the moment. Please try again later"
+            status_code = 503
+            logger.exception("APIError or ServiceUnavailableError occurred")
+        except Exception as e:
+            error_message = str(e.__context__) + " and " + e.__str__()
+            status_code = 500
+            logger.exception("An exception occurred: %s", e)
+    else:
+        error_message = "The UUID number is incorrect"
+        status_code = 422
+
+    # return None, None, None, error_message, status_codewss
+    # If there's an error, return a plain text response with the error message
+    return Response(content=error_message, media_type="text/plain", status_code=status_code)

@@ -14,9 +14,7 @@ import uuid
 import shutil
 from zipfile import ZipFile
 from query_with_tfidf import querying_with_tfidf
-from fastapi.responses import Response
 
-from sse_starlette.sse import EventSourceResponse
 
 api_description = """
 Jugalbandi.ai has a vector datastore that allows you to get factual Q&A over a document set.
@@ -318,41 +316,3 @@ async def query_using_langchain_with_gpt4(uuid_number: str, query_string: str) -
         response.source_text = source_text
         cache[lowercase_query_string] = response
         return response
-
-@app.get("/query-with-langchain-gpt4_streaming", tags=["Q&A over Document Store"])
-async def query_using_langchain_with_gpt4_streaming(uuid_number: str, query_string: str) -> EventSourceResponse:
-    lowercase_query_string = "streaming_" + query_string.lower() + uuid_number
-    if lowercase_query_string in cache:
-        print("Value in cache", lowercase_query_string)
-        return cache[lowercase_query_string]
-    else:
-        load_dotenv()
-        response = querying_with_langchain_gpt4_streaming(uuid_number, query_string)
-
-        if isinstance(response, EventSourceResponse):
-            # If the response is already a StreamingResponse, return it directly
-            return response
-
-        # print(response)
-
-        if response.status_code != 200:
-            # If there's an error, raise an HTTPException
-            raise HTTPException(status_code=response.status_code, detail=response.text)
-
-        # Retrieve the response content
-        # response_content = await response.content.read()
-
-        # Create a StreamingResponse with the response content
-        streaming_response = EventSourceResponse(
-            response.content,
-            headers={"Content-Type":"application/json"}
-        )
-
-        # Set the response headers
-        for header, value in response.headers.items():
-            streaming_response.headers[header] = value
-
-        # Store the streaming_response object in the cache
-        cache[lowercase_query_string] = streaming_response
-
-        return streaming_response

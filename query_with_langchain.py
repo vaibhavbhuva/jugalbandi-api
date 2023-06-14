@@ -13,7 +13,7 @@ import logging
 from sse_starlette.sse import EventSourceResponse
 
 
-logger = logging.getLogger("MyLogger")
+logger = logging.getLogger("JugalbandiLogger")
 
 def langchain_indexing(uuid_number):
     sources = SimpleDirectoryReader(uuid_number).load_data()
@@ -91,6 +91,39 @@ def querying_with_langchain(uuid_number, query):
 
 
 def querying_with_langchain_gpt4(uuid_number, query):
+    files_count = read_langchain_index_files(uuid_number)
+    if files_count == 2:
+        try:
+            search_index = FAISS.load_local(uuid_number, OpenAIEmbeddings())
+            documents = search_index.similarity_search(query, k=5)
+            contexts = [document.page_content for document in documents]
+            augmented_query = "\n\n---\n\n".join(contexts) + "\n\n-----\n\n" + query
+
+            system_rules = "You are a helpful assistant who helps with answering questions based on the provided information. If the information cannot be found in the text provided, you admit that I don't know"
+            res = openai.ChatCompletion.create(
+                model='gpt-4',
+                messages=[
+                    {"role": "system", "content": system_rules},
+                    {"role": "user", "content": augmented_query}
+                ]
+            )
+            return res['choices'][0]['message']['content'], "", "", None, 200
+
+        except openai.error.RateLimitError as e:
+            error_message = f"OpenAI API request exceeded rate limit: {e}"
+            status_code = 500
+        except (openai.error.APIError, openai.error.ServiceUnavailableError):
+            error_message = "Server is overloaded or unable to answer your request at the moment. Please try again later"
+            status_code = 503
+        except Exception as e:
+            error_message = str(e.__context__) + " and " + e.__str__()
+            status_code = 500
+    else:
+        error_message = "The UUID number is incorrect"
+        status_code = 422
+    return None, None, None, error_message, status_code
+
+def querying_with_langchain_gpt4_streaming(uuid_number, query):
     files_count = read_langchain_index_files(uuid_number)
     if files_count == 2:
         try:

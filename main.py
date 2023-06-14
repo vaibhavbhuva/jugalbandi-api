@@ -299,14 +299,35 @@ async def get_source_document(query_string: str = "", input_language: DropDownIn
 
 
 @app.get("/query-with-langchain-gpt4", tags=["Q&A over Document Store"])
-async def query_using_langchain_with_gpt4(uuid_number: str, query_string: str) -> EventSourceResponse:
+async def query_using_langchain_with_gpt4(uuid_number: str, query_string: str) -> Response:
     lowercase_query_string = query_string.lower() + uuid_number
     if lowercase_query_string in cache:
         print("Value in cache", lowercase_query_string)
         return cache[lowercase_query_string]
     else:
         load_dotenv()
-        response = querying_with_langchain_gpt4(uuid_number, query_string)
+        answer, source_text, paraphrased_query, error_message, status_code = querying_with_langchain_gpt4(uuid_number,
+                                                                                                        query_string)
+
+        if status_code != 200:
+            raise HTTPException(status_code=status_code, detail=error_message)
+
+        response = Response()
+        response.query = query_string
+        response.answer = answer
+        response.source_text = source_text
+        cache[lowercase_query_string] = response
+        return response
+
+@app.get("/query-with-langchain-gpt4_streaming", tags=["Q&A over Document Store"])
+async def query_using_langchain_with_gpt4_streaming(uuid_number: str, query_string: str) -> EventSourceResponse:
+    lowercase_query_string = "streaming_" + query_string.lower() + uuid_number
+    if lowercase_query_string in cache:
+        print("Value in cache", lowercase_query_string)
+        return cache[lowercase_query_string]
+    else:
+        load_dotenv()
+        response = querying_with_langchain_gpt4_streaming(uuid_number, query_string)
 
         if isinstance(response, EventSourceResponse):
             # If the response is already a StreamingResponse, return it directly
@@ -315,7 +336,7 @@ async def query_using_langchain_with_gpt4(uuid_number: str, query_string: str) -
         # print(response)
 
         if response.status_code != 200:
-        # If there's an error, raise an HTTPException
+            # If there's an error, raise an HTTPException
             raise HTTPException(status_code=response.status_code, detail=response.text)
 
         # Retrieve the response content

@@ -14,6 +14,9 @@ import uuid
 import shutil
 from zipfile import ZipFile
 from query_with_tfidf import querying_with_tfidf
+from fastapi.responses import StreamingResponse
+from fastapi.responses import Response
+import aiohttp
 
 
 api_description = """
@@ -297,22 +300,38 @@ async def get_source_document(query_string: str = "", input_language: DropDownIn
 
 
 @app.get("/query-with-langchain-gpt4", tags=["Q&A over Document Store"])
-async def query_using_langchain_with_gpt4(uuid_number: str, query_string: str) -> Response:
+async def query_using_langchain_with_gpt4(uuid_number: str, query_string: str) -> StreamingResponse:
     lowercase_query_string = query_string.lower() + uuid_number
     if lowercase_query_string in cache:
         print("Value in cache", lowercase_query_string)
         return cache[lowercase_query_string]
     else:
         load_dotenv()
-        answer, source_text, paraphrased_query, error_message, status_code = querying_with_langchain_gpt4(uuid_number,
-                                                                                                        query_string)
+        response = querying_with_langchain_gpt4(uuid_number, query_string)
 
-        if status_code != 200:
-            raise HTTPException(status_code=status_code, detail=error_message)
+        if isinstance(response, StreamingResponse):
+            # If the response is already a StreamingResponse, return it directly
+            return response
 
-        response = Response()
-        response.query = query_string
-        response.answer = answer
-        response.source_text = source_text
-        cache[lowercase_query_string] = response
-        return response
+        if response.status_code != 200:
+        # If there's an error, raise an HTTPException
+            raise HTTPException(status_code=response.status_code, detail=response.text)
+
+        # Retrieve the response content
+        # response_content = await response.content.read()
+
+        # Create a StreamingResponse with the response content
+        streaming_response = StreamingResponse(
+            response.content,
+            media_type=response.headers.get('content-type', 'text/plain'),
+            status_code=response.status_code
+        )
+
+        # Set the response headers
+        for header, value in response.headers.items():
+            streaming_response.headers[header] = value
+
+        # Store the streaming_response object in the cache
+        cache[lowercase_query_string] = streaming_response
+
+        return streaming_response

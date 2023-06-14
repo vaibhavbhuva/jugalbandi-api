@@ -8,7 +8,14 @@ from langchain.vectorstores import FAISS
 from langchain import PromptTemplate, OpenAI, LLMChain
 from cloud_storage import *
 import shutil
+import io
+import json
+from fastapi.responses import StreamingResponse
+from fastapi.responses import Response
+import logging
+import aiohttp
 
+logger = logging.getLogger("MyLogger")
 
 def langchain_indexing(uuid_number):
     sources = SimpleDirectoryReader(uuid_number).load_data()
@@ -95,25 +102,43 @@ def querying_with_langchain_gpt4(uuid_number, query):
             augmented_query = "\n\n---\n\n".join(contexts) + "\n\n-----\n\n" + query
 
             system_rules = "You are a helpful assistant who helps with answering questions based on the provided information. If the information cannot be found in the text provided, you admit that I don't know"
-            res = openai.ChatCompletion.create(
+
+            response = openai.ChatCompletion.create(
                 model='gpt-4',
                 messages=[
                     {"role": "system", "content": system_rules},
                     {"role": "user", "content": augmented_query}
-                ]
+                ],
+                stream=True
             )
-            return res['choices'][0]['message']['content'], "", "", None, 200
+
+            # Define a generator function to yield each chunk of the response
+            async def generate_messages():
+                for chunk in response:
+                    print(chunk)
+                    # chunk_message = chunk['choices'][0]['delta']['content']
+                    chunk_message = chunk["choices"][0].get("delta", {}).get("content", '')
+                    yield chunk_message
+
+            # Return a StreamingResponse with the generated messages
+            return StreamingResponse(generate_messages(), media_type="text/plain")
 
         except openai.error.RateLimitError as e:
             error_message = f"OpenAI API request exceeded rate limit: {e}"
             status_code = 500
+            logger.exception("RateLimitError occurred: %s", e)
         except (openai.error.APIError, openai.error.ServiceUnavailableError):
             error_message = "Server is overloaded or unable to answer your request at the moment. Please try again later"
             status_code = 503
+            logger.exception("APIError or ServiceUnavailableError occurred")
         except Exception as e:
             error_message = str(e.__context__) + " and " + e.__str__()
             status_code = 500
+            logger.exception("An exception occurred: %s", e)
     else:
         error_message = "The UUID number is incorrect"
         status_code = 422
-    return None, None, None, error_message, status_code
+
+    # return None, None, None, error_message, status_codewss
+    # If there's an error, return a plain text response with the error message
+    return Response(content=error_message, media_type="text/plain", status_code=status_code)

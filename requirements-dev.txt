@@ -17,3 +17,4 @@ pytz==2022.7.1
 ffmpeg
 scikit-learn==1.2.1
 urllib3==1.26.15
+sse_starlette==1.6.1

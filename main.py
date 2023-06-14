@@ -131,11 +131,7 @@ async def query_using_langchain(uuid_number: str, query_string: str) -> Response
         load_dotenv()
         answer, source_text, paraphrased_query, error_message, status_code = querying_with_langchain(uuid_number,
                                                                                                     query_string)
-        engine = await create_engine()
-        await insert_qa_logs(engine=engine, model_name="langchain", uuid_number=uuid_number, query=query_string,
-                            paraphrased_query=paraphrased_query, response=answer, source_text=source_text,
-                            error_message=error_message)
-        await engine.close()
+        print(engine, "langchain", uuid_number, query_string, paraphrased_query, answer, source_text,)
         if status_code != 200:
             raise HTTPException(status_code=status_code, detail=error_message)
 

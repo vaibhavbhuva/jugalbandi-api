@@ -6,3 +6,4 @@ __pycache__/
 .pytest_cache
 gcp_credentials.json
 sample.env
+extraction.py

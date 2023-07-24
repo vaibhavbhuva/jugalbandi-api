@@ -354,3 +354,28 @@ async def query_using_langchain_with_gpt4_streaming(uuid_number: str, query_stri
         cache[lowercase_query_string] = streaming_response
 
         return streaming_response
+
+@app.get("/query-with-langchain-gpt4-mcq", tags=["Q&A over Document Store"])
+async def query_using_langchain_with_gpt4_mcq(uuid_number: str, query_string: str, caching: bool) -> Response:
+    lowercase_query_string = query_string.lower() + uuid_number
+    if lowercase_query_string in cache:
+        print("Value in cache", lowercase_query_string)
+        return cache[lowercase_query_string]
+    else:
+        load_dotenv()
+        answer, source_text, paraphrased_query, error_message, status_code = querying_with_langchain_gpt4_mcq(
+            uuid_number,
+            query_string,
+            caching
+        )
+
+        if status_code != 200:
+            raise HTTPException(status_code=status_code, detail=error_message)
+
+        response = Response()
+        response.query = query_string
+        response.answer = answer
+        response.source_text = source_text
+        cache[lowercase_query_string] = response
+        return response
+

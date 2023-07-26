@@ -208,20 +208,16 @@ def querying_with_langchain_gpt4_mcq(uuid_number, query, doCache):
     if uuid_number.lower() == "tech":
         try:
 
-            system_rules = getSystemRulesForTechQuestions()
-            userContent = {"role": "user", "content": query}
-            systemContent = {"role": "system", "content": system_rules}
-            
-            
-            prompts = getPromptsForGCP(doCache, query, system_rules)
+            system_rules = getSystemRulesForTechQuestions() 
+            prompts = getPromptsForGCP(doCache, query, system_rules, promptsInMemoryTechQues)
                 
             if doCache:
-                promptsInMemoryTechQues.extend(prompts)
-            #     print("====================================================")
-            #     print(promptsInMemoryTechQues)
-            # else:
-            #     print("777777777777777777777777777777777777777777777777777")
-            #     print(prompts)
+                # promptsInMemoryDomainQues.extend(prompts)
+                print("====================================================")
+                print(promptsInMemoryDomainQues)
+            else:
+                print("==7777777777777777777===")
+                print(prompts)
             
             res = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo-16k",
@@ -243,139 +239,46 @@ def querying_with_langchain_gpt4_mcq(uuid_number, query, doCache):
             status_code = 500
         return None, None, None, error_message, status_code
     else:
-        files_count = read_langchain_index_files(uuid_number)
-        if files_count == 2:
+        uuid_number = uuid_number.split(",")
+        total_count = 0
+        for uuid in uuid_number:
+            files_count = read_langchain_index_files(uuid)
+            total_count = total_count + files_count
+        # print("files_count ================>", files_count)
+        # exit()
+        if total_count >= 2:
             try:
-                search_index = FAISS.load_local(uuid_number, OpenAIEmbeddings())
-                documents = search_index.similarity_search(query, k=5)
-                contexts = [document.page_content for document in documents]
+                all_documents = [];
+                for uuid in uuid_number:
+                    search_index = FAISS.load_local(uuid, OpenAIEmbeddings())
+                    documents = search_index.similarity_search(query, k=5)
+                    all_documents = all_documents + documents 
+                contexts = [document.page_content for document in all_documents]
 
                 system_rules = getSystemRulesForDomainSpecificQuestions()
                 context = "\n\n---\n\n".join(contexts) + "\n\n-----\n\n"
                 system_rules = system_rules.format(Context=context)
 
-                prompts = getPromptsForGCP(doCache, query, system_rules)
+                prompts = getPromptsForGCP(doCache, query, system_rules,  promptsInMemoryDomainQues)
                 
                 if doCache:
-                    promptsInMemoryDomainQues.extend(prompts)
+                    # promptsInMemoryDomainQues.extend(prompts)
                     print("====================================================")
                     print(promptsInMemoryDomainQues)
                 else:
                     print("==7777777777777777777===")
                     print(prompts)
                     
-
                 res = openai.ChatCompletion.create(
                     model="gpt-3.5-turbo-16k",
                     messages = promptsInMemoryDomainQues if doCache else prompts,
                 )
 
                 respMsg = res["choices"][0]["message"]["content"]
+                print('===========>', respMsg)
                 if doCache:
                     promptsInMemoryDomainQues.append({"role":"assistant", "content":respMsg})
                 return respMsg, "", "", None, 200
-
-            except openai.error.RateLimitError as e:
-                error_message = f"OpenAI API request exceeded rate limit: {e}"
-                status_code = 500
-            except (openai.error.APIError, openai.error.ServiceUnavailableError):
-                error_message = "Server is overloaded or unable to answer your request at the moment. Please try again later"
-                status_code = 503
-            except Exception as e:
-                error_message = str(e.__context__) + " and " + e.__str__()
-                status_code = 500
-        else:
-            error_message = "The UUID number is incorrect"
-            status_code = 422
-        return None, None, None, error_message, status_code
-
-
-
-def querying_with_langchain_gpt4_sajesh(uuid_number, query):
-    if uuid_number.lower() == "storybot":
-        try:
-            system_rules = "I want you to act as an Indian story teller. You will come up with entertaining stories that are engaging, imaginative and captivating for children in India. It can be fairy tales, educational stories or any other type of stories which has the potential to capture children's attention and imagination. A story should not be more than 200 words. The audience for the stories do not speak English natively. So use very simple English with short and simple sentences, no complex or compound sentences. Extra points if the story ends with an unexpected twist."
-            res = openai.ChatCompletion.create(
-                model="gpt-4",
-                messages=[
-                    {"role": "system", "content": system_rules},
-                    {"role": "user", "content": query},
-                ],
-            )
-            return res["choices"][0]["message"]["content"], "", "", None, 200
-        except openai.error.RateLimitError as e:
-            error_message = f"OpenAI API request exceeded rate limit: {e}"
-            status_code = 500
-        except (openai.error.APIError, openai.error.ServiceUnavailableError):
-            error_message = "Server is overloaded or unable to answer your request at the moment. Please try again later"
-            status_code = 503
-        except Exception as e:
-            error_message = str(e.__context__) + " and " + e.__str__()
-            status_code = 500
-        return None, None, None, error_message, status_code
-    else:
-        files_count = read_langchain_index_files(uuid_number)
-        if files_count == 2:
-            try:
-                search_index = FAISS.load_local(uuid_number, OpenAIEmbeddings())
-                documents = search_index.similarity_search(query, k=5)
-                contexts = [document.page_content for document in documents]
-
-                print("=================================================")
-
-                for context in contexts:
-                    print(context)
-
-                print("=================================================")
-
-                # This is for generating the technology questions - starts
-                # TODO uncomment this for no-domain questions
-                # system_rules = getSystemRulesForTechQuestions()
-            # This is for generating the technology questions - ends
-
-                # This is for generating the domain specific questions - starts
-                # TODO uncomment this for domain specific questions
-                system_rules = getSystemRulesForDomainSpecificQuestions()
-                context = "\n\n---\n\n".join(contexts) + "\n\n-----\n\n"
-                system_rules = system_rules.format(Context=context)
-                # print(system_rules)
-                # This is for generating the domain specific questions - ends
-
-                res = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo-16k",
-                    messages=[
-                        {"role": "system", "content": system_rules},
-                        {"role": "user", "content": query},
-                    ],
-                )
-
-                # Split the CSV data into lines
-                print(res["choices"][0]["message"]["content"])
-                csv_lines = res["choices"][0]["message"]["content"].strip().split('\n')
-
-                # Extract the header and remove it from the lines
-                header = [column.strip('"') for column in csv_lines[0].split(',')]
-                csv_lines = csv_lines[1:]
-
-                # Create a list to hold the JSON objects
-                json_list = []
-
-                # Convert each line to a JSON object
-                for line in csv_lines:
-                    row = next(csv.reader([line], delimiter=',', quotechar='"'))
-                    if len(header) == len(row):
-                        json_object = {header[i]: row[i] for i in range(len(header))}
-                        json_list.append(json_object)
-                    else:
-                        print(f"Skipping line: {line}. The number of columns does not match the header.")
-
-                # Convert the list of JSON objects to a JSON string
-                json_data = json.dumps(json_list, indent=4)
-
-                # Print the JSON data
-                print(json_data)
-
-                return json_data, "", "", None, 200
 
             except openai.error.RateLimitError as e:
                 error_message = f"OpenAI API request exceeded rate limit: {e}"
@@ -438,12 +341,12 @@ def getSystemRulesForDomainSpecificQuestions():
 #         system_rules = getSystemRulesForTechQuestions()
 #         return system_rules 
 
-def getPromptsForGCP(doCache, query, system_rules):
-    prompts = []
+def getPromptsForGCP(doCache, query, system_rules, prompts):
+    
     userContent = {"role": "user", "content": query}
     systemContent = {"role": "system", "content": system_rules}
     if doCache:
-        if len(prompts) <= 0:
+        if len(prompts) == 0:
             prompts.append(systemContent)
             prompts.append(userContent)
         else:

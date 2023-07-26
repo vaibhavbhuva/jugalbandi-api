@@ -16,7 +16,7 @@ To use the code, you need to follow these steps:
 2. The code requires **Python 3.7 or higher** and some additional python packages. To install these packages, run the following command in your terminal:
 
     ```bash
-    pip install requirements-dev.txt
+    pip install -r requirements-dev.txt
     ```
 
 3. You will need a GCP account to store the uploaded documents & indices in a bucket and to host a postgres connection to store the api logs.
@@ -57,6 +57,12 @@ Once the above installation steps are completed, run the following command in ho
 
 ```bash
 uvicorn main:app
+```
+
+You can restart the server by using the reload argument during development.
+
+```bash
+uvicorn main:app --reload
 ```
 
 # 📃 3. API Specification and Documentation

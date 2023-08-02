@@ -210,21 +210,12 @@ def querying_with_langchain_gpt4_mcq(uuid_number, query, doCache):
 
             system_rules = getSystemRulesForTechQuestions() 
             prompts = getPromptsForGCP(doCache, query, system_rules, promptsInMemoryTechQues)
-                
-            if doCache:
-                # promptsInMemoryDomainQues.extend(prompts)
-                print("====================================================")
-                print(promptsInMemoryDomainQues)
-            else:
-                print("==7777777777777777777===")
-                print(prompts)
-            
             res = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo-16k",
                 messages = promptsInMemoryTechQues if doCache else prompts,
             )
-
             respMsg = res["choices"][0]["message"]["content"]
+            print('===========>', respMsg)
             if doCache:
                 promptsInMemoryTechQues.append({"role":"assistant", "content":respMsg});
             return respMsg, "", "", None, 200
@@ -244,11 +235,9 @@ def querying_with_langchain_gpt4_mcq(uuid_number, query, doCache):
         for uuid in uuid_number:
             files_count = read_langchain_index_files(uuid)
             total_count = total_count + files_count
-        # print("files_count ================>", files_count)
-        # exit()
         if total_count >= 2:
             try:
-                all_documents = [];
+                all_documents = []
                 for uuid in uuid_number:
                     search_index = FAISS.load_local(uuid, OpenAIEmbeddings())
                     documents = search_index.similarity_search(query, k=5)
@@ -260,14 +249,6 @@ def querying_with_langchain_gpt4_mcq(uuid_number, query, doCache):
                 system_rules = system_rules.format(Context=context)
 
                 prompts = getPromptsForGCP(doCache, query, system_rules,  promptsInMemoryDomainQues)
-                
-                if doCache:
-                    # promptsInMemoryDomainQues.extend(prompts)
-                    print("====================================================")
-                    print(promptsInMemoryDomainQues)
-                else:
-                    print("==7777777777777777777===")
-                    print(prompts)
                     
                 res = openai.ChatCompletion.create(
                     model="gpt-3.5-turbo-16k",

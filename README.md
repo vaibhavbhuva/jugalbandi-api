@@ -49,6 +49,8 @@ To use the code, you need to follow these steps:
     DATABASE_PASSWORD=<your_db_password>
     DATABASE_IP=<your_db_public_ip>
     DATABASE_PORT=5432
+    USERNAME=<your_login_username>
+    PASSWORD=<your_login_password>
     ```
 
 # 🏃🏻 2. Running
@@ -58,12 +60,20 @@ Once the above installation steps are completed, run the following command in ho
 ```bash
 uvicorn main:app
 ```
+Open your browser at http://127.0.0.1:8000/docs to access the application.
 
-You can restart the server by using the reload argument during development.
+The command `uvicorn main:app` refers to:
 
-```bash
-uvicorn main:app --reload
-```
+- `main`: the file `main.py` (the Python "module").
+- `app`: the object created inside of `main.py` with the line `app = FastAPI()`.
+- `--reload`:  make the server restart after code changes. Only do this for development.
+    ```bash
+    uvicorn main:app --reload
+    ```
+
+When you try to open the URL for the first time (or click the "Execute" button in the docs) the browser will ask you for your username and password (Which you provided in the `.env` file):
+
+![Alt text](docs/image.png)
 
 # 📃 3. API Specification and Documentation
 
@@ -172,6 +182,39 @@ If the query_text is absent and audio_url is present, then the audio url is down
 #### Request
 
 Requires an uuid_number(string) and query_string(string).
+
+#### Successful Response
+
+```json
+{
+  "query": "<your-given-query>",
+  "answer": "<response>",
+  "source_text": ""
+}
+```
+
+#### What happens during the API call?
+
+Once the API is hit with proper request parameters, the **index.faiss** and **index.pkl** files are fetched from the GCP bucket provided the uuid_number given is correct. Once the index files are successfully fetched, they are then used to answer the query given by the user.
+
+One major difference here is that this api uses GPT4 model for querying process, hence the answer will not be paraphrased on most cases and precisely that is why the source_text will be empty in the response since we get the actual source_text present in the document as the answer in response.
+
+---
+
+### `GET /query-with-langchain-gpt4-mcq`
+
+#### Request  
+
+QUERY PARAMETERS
+
+  1. uuid_number (string) - required
+  2. query_string (string) - required
+  3. caching (boolen) - required
+
+The UUID number has been classified into two categories:
+- **Technology Specific:** Pass `tech` instead of the UUID number when you want to generate technology-specific questions.
+- **Domain Specific:** Requires the actual UUID number where the document was uploaded.
+
 
 #### Successful Response
 

@@ -2,7 +2,10 @@ import os.path
 from enum import Enum
 from typing import List
 from cachetools import TTLCache
-from fastapi import FastAPI, UploadFile, File, HTTPException
+import secrets
+from fastapi import Depends, FastAPI, UploadFile, File, HTTPException
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from starlette.status import HTTP_401_UNAUTHORIZED
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from database_functions import *
@@ -15,7 +18,6 @@ import shutil
 from zipfile import ZipFile
 from query_with_tfidf import querying_with_tfidf
 from fastapi.responses import Response
-
 from sse_starlette.sse import EventSourceResponse
 
 api_description = """
@@ -37,6 +39,8 @@ Allows you to pass uuid for a document set and ask a question for factual respon
 """
 
 app = FastAPI(title="Jugalbandi.ai",
+            #   docs_url=None,  # Swagger UI: disable it by setting docs_url=None
+            #   redoc_url=None, # ReDoc : 
               description=api_description,
               version="0.0.1",
               terms_of_service="http://example.com/terms/",
@@ -50,6 +54,8 @@ app = FastAPI(title="Jugalbandi.ai",
               }, )
 ttl = int(os.environ.get("CACHE_TTL", 86400)) 
 cache = TTLCache(maxsize=100, ttl=ttl)
+
+security = HTTPBasic()
 
 app.add_middleware(
     CORSMiddleware,
@@ -85,8 +91,28 @@ class DropDownInputLanguage(str, Enum):
     hi = "Hindi"
     kn = "Kannada"
     te = "Telugu"
-    
 
+def get_current_username(
+    credentials: HTTPBasicCredentials = Depends(security)
+):
+    load_dotenv()
+    current_username_bytes = credentials.username.encode("utf8")
+    correct_username_bytes = bytes(os.environ.get("USERNAME"), 'utf-8')
+    is_correct_username = secrets.compare_digest(
+        current_username_bytes, correct_username_bytes
+    )
+    current_password_bytes = credentials.password.encode("utf8")
+    correct_password_bytes = bytes(os.environ.get("PASSWORD"), 'utf-8')
+    is_correct_password = secrets.compare_digest(
+        current_password_bytes, correct_password_bytes
+    )
+    if not (is_correct_username and is_correct_password):
+        raise HTTPException(
+            status_code=HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return credentials.username
 
 @app.get("/")
 async def root():
@@ -94,7 +120,7 @@ async def root():
 
 
 @app.get("/query-with-gptindex", tags=["Q&A over Document Store"])
-async def query_using_gptindex(uuid_number: str, query_string: str) -> Response:
+async def query_using_gptindex(uuid_number: str, query_string: str, username: str = Depends(get_current_username)) -> Response:
 
     # lowercase_query_string = query_string.lower()
     # if lowercase_query_string in cache:
@@ -123,7 +149,7 @@ async def query_using_gptindex(uuid_number: str, query_string: str) -> Response:
 
 
 @app.get("/query-with-langchain", tags=["Q&A over Document Store"])
-async def query_using_langchain(uuid_number: str, query_string: str) -> Response:
+async def query_using_langchain(uuid_number: str, query_string: str, username: str = Depends(get_current_username)) -> Response:
     lowercase_query_string = query_string.lower() + uuid_number
     if lowercase_query_string in cache:
         print("Value in cache", lowercase_query_string)
@@ -146,7 +172,7 @@ async def query_using_langchain(uuid_number: str, query_string: str) -> Response
 
 
 @app.post("/upload-files", tags=["Document Store"])
-async def upload_files(description: str, files: List[UploadFile] = File(...)):
+async def upload_files(description: str, files: List[UploadFile] = File(...), username: str = Depends(get_current_username)):
     load_dotenv()
     uuid_number = str(uuid.uuid1())
     os.makedirs(uuid_number)
@@ -203,7 +229,7 @@ async def upload_files(description: str, files: List[UploadFile] = File(...)):
 @app.get("/query-using-voice", tags=["Q&A over Document Store"])
 async def query_with_voice_input(uuid_number: str, input_language: DropDownInputLanguage,
                                  output_format: DropdownOutputFormat, query_text: str = "",
-                                 audio_url: str = "") -> ResponseForAudio:
+                                 audio_url: str = "", username: str = Depends(get_current_username)) -> ResponseForAudio:
     load_dotenv()
     language = input_language.name
     output_medium = output_format.name
@@ -273,7 +299,7 @@ async def query_with_voice_input(uuid_number: str, input_language: DropDownInput
 
 
 @app.get("/rephrased-query")
-async def get_rephrased_query(query_string: str):
+async def get_rephrased_query(query_string: str, username: str = Depends(get_current_username)):
     load_dotenv()
     answer = rephrased_question(query_string)
     return {"given_query": query_string, "rephrased_query": answer}
@@ -281,7 +307,7 @@ async def get_rephrased_query(query_string: str):
 
 @app.post("/source-document", tags=["Source Document over Document Store"])
 async def get_source_document(query_string: str = "", input_language: DropDownInputLanguage = DropDownInputLanguage.en,
-                              audio_file: UploadFile = File(None)):
+                              audio_file: UploadFile = File(None), username: str = Depends(get_current_username)):
     load_dotenv()
     filename = ""
     if audio_file is not None:
@@ -297,7 +323,7 @@ async def get_source_document(query_string: str = "", input_language: DropDownIn
 
 
 @app.get("/query-with-langchain-gpt4", tags=["Q&A over Document Store"])
-async def query_using_langchain_with_gpt4(uuid_number: str, query_string: str) -> Response:
+async def query_using_langchain_with_gpt4(uuid_number: str, query_string: str, username: str = Depends(get_current_username)) -> Response:
     lowercase_query_string = query_string.lower() + uuid_number
     if lowercase_query_string in cache:
         print("Value in cache", lowercase_query_string)
@@ -318,7 +344,7 @@ async def query_using_langchain_with_gpt4(uuid_number: str, query_string: str) -
         return response
 
 @app.get("/query-with-langchain-gpt4_streaming", tags=["Q&A over Document Store"])
-async def query_using_langchain_with_gpt4_streaming(uuid_number: str, query_string: str) -> EventSourceResponse:
+async def query_using_langchain_with_gpt4_streaming(uuid_number: str, query_string: str, username: str = Depends(get_current_username)) -> EventSourceResponse:
     lowercase_query_string = "streaming_" + query_string.lower() + uuid_number
     if lowercase_query_string in cache:
         print("Value in cache", lowercase_query_string)
@@ -356,7 +382,7 @@ async def query_using_langchain_with_gpt4_streaming(uuid_number: str, query_stri
         return streaming_response
 
 @app.get("/query-with-langchain-gpt4-mcq", tags=["Q&A over Document Store"])
-async def query_using_langchain_with_gpt4_mcq(uuid_number: str, query_string: str, caching: bool) -> Response:
+async def query_using_langchain_with_gpt4_mcq(uuid_number: str, query_string: str, caching: bool, username: str = Depends(get_current_username)) -> Response:
     cache_key = uuid_number.replace(",", "_").strip()
     lowercase_query_string = query_string.lower() + cache_key
     if lowercase_query_string in cache:

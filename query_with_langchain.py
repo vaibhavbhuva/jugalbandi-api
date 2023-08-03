@@ -207,7 +207,6 @@ def querying_with_langchain_gpt4_streaming(uuid_number, query):
 def querying_with_langchain_gpt4_mcq(uuid_number, query, doCache):
     if uuid_number.lower() == "tech":
         try:
-
             system_rules = getSystemRulesForTechQuestions() 
             prompts = getPromptsForGCP(doCache, query, system_rules, promptsInMemoryTechQues)
             res = openai.ChatCompletion.create(
@@ -300,7 +299,7 @@ def getSystemRulesForDomainSpecificQuestions():
                     
                     "{Context}"
                     
-                    Please generate the questions and encode the responses in CSV format. Use the following headers in lowercase with spaces replaced by underscores: question, option_a, option_b, option_c, option_d, correct_answer. Additionally, replace any commas in the CSV data with a dollar symbol ($). The output should be properly formatted and comma-separated.
+                    Please generate the questions and encode the responses in CSV format. Use the following headers in lowercase with spaces replaced by underscores: question, option_a, option_b, option_c, option_d, correct_answer. The output should be properly formatted and comma-separated.
                     
                     Example:
                     Question,Option_A,Option_B,Option_C,Option_D,Correct_Answer

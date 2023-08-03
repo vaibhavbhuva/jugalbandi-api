@@ -17,7 +17,7 @@ import uuid
 import shutil
 from zipfile import ZipFile
 from query_with_tfidf import querying_with_tfidf
-from fastapi.responses import Response
+from fastapi.responses import PlainTextResponse, Response
 from sse_starlette.sse import EventSourceResponse
 
 api_description = """
@@ -380,9 +380,9 @@ async def query_using_langchain_with_gpt4_streaming(uuid_number: str, query_stri
         cache[lowercase_query_string] = streaming_response
 
         return streaming_response
-
-@app.get("/query-with-langchain-gpt4-mcq", tags=["Q&A over Document Store"])
-async def query_using_langchain_with_gpt4_mcq(uuid_number: str, query_string: str, caching: bool, username: str = Depends(get_current_username)) -> Response:
+    
+@app.get("/query-with-langchain-gpt4-mcq", tags=["Q&A over Document Store"], response_class = PlainTextResponse)
+async def query_using_langchain_with_gpt4_mcq(uuid_number: str, query_string: str, caching: bool, username: str = Depends(get_current_username)) -> PlainTextResponse:
     cache_key = uuid_number.replace(",", "_").strip()
     lowercase_query_string = query_string.lower() + cache_key
     if lowercase_query_string in cache:
@@ -398,11 +398,6 @@ async def query_using_langchain_with_gpt4_mcq(uuid_number: str, query_string: st
 
         if status_code != 200:
             raise HTTPException(status_code=status_code, detail=error_message)
-
-        response = Response()
-        response.query = query_string
-        response.answer = answer
-        response.source_text = source_text
-        cache[lowercase_query_string] = response
-        return response
-
+        
+        cache[lowercase_query_string] = answer
+        return answer

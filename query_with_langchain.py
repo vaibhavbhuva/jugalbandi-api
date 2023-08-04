@@ -279,7 +279,7 @@ def getSystemRulesForTechQuestions():
     system_rules = """
                     You are a technology expert tasked with creating multiple-choice questions for a question bank. Your goal is to provide the question, options, and correct answer. Make sure that questions are not repeated.
     
-                    Please generate the questions and encode the responses in CSV format. Use the following headers in lowercase with spaces replaced by underscores: question, option_a, option_b, option_c, option_d, correct_answer. Additionally, replace any commas in the CSV data with a dollar symbol ($). The output should be comma-separated.
+                    Please generate the questions and encode the responses in CSV format. Use the following headers in lowercase with spaces replaced by underscores: question, option_a, option_b, option_c, option_d, correct_answer. The output should be properly formatted and comma-separated.
                     
                     When generating the questions, list the options without prefixing them with option names like A, B, C, or D. However, specify the correct answer in the "correct_answer" column using the corresponding option letter.
                     

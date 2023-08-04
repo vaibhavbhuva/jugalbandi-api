@@ -17,7 +17,7 @@ import uuid
 import shutil
 from zipfile import ZipFile
 from query_with_tfidf import querying_with_tfidf
-from fastapi.responses import PlainTextResponse, Response
+from fastapi.responses import Response
 from sse_starlette.sse import EventSourceResponse
 
 api_description = """
@@ -65,6 +65,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+class CSVResponse(Response):
+    media_type = "text/csv"
 
 class Response(BaseModel):
     query: str = None
@@ -318,7 +320,7 @@ async def get_source_document(query_string: str = "", input_language: DropDownIn
             filename = audio_file.filename
         except OSError:
             return "There was an parsing the audio file"
-    answer = querying_with_tfidf(query_string, input_language.name, filename)
+    answer = querying_with_tfidf(query_string, input_language.name, filename)  
     return answer
 
 
@@ -381,13 +383,13 @@ async def query_using_langchain_with_gpt4_streaming(uuid_number: str, query_stri
 
         return streaming_response
     
-@app.get("/query-with-langchain-gpt4-mcq", tags=["Q&A over Document Store"], response_class = PlainTextResponse)
-async def query_using_langchain_with_gpt4_mcq(uuid_number: str, query_string: str, caching: bool, username: str = Depends(get_current_username)) -> PlainTextResponse:
+@app.get("/query-with-langchain-gpt4-mcq", tags=["Q&A over Document Store"], response_class = CSVResponse)
+async def query_using_langchain_with_gpt4_mcq(uuid_number: str, query_string: str, caching: bool, username: str = Depends(get_current_username)) -> CSVResponse:
     cache_key = uuid_number.replace(",", "_").strip()
     lowercase_query_string = query_string.lower() + cache_key
     if lowercase_query_string in cache:
         print("Value in cache", lowercase_query_string)
-        return cache[lowercase_query_string]
+        return CSVResponse(content=cache[lowercase_query_string])
     else:
         load_dotenv()
         answer, source_text, paraphrased_query, error_message, status_code = querying_with_langchain_gpt4_mcq(
@@ -400,4 +402,4 @@ async def query_using_langchain_with_gpt4_mcq(uuid_number: str, query_string: st
             raise HTTPException(status_code=status_code, detail=error_message)
         
         cache[lowercase_query_string] = answer
-        return answer
+        return CSVResponse(answer)

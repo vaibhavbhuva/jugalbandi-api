@@ -41,7 +41,7 @@ Allows you to pass uuid for a document set and ask a question for factual respon
 app = FastAPI(title="Jugalbandi.ai",
             #   docs_url=None,  # Swagger UI: disable it by setting docs_url=None
               redoc_url=None, # ReDoc : disable it by setting docs_url=None
-              swagger_ui_parameters={"defaultModelsExpandDepth": 0},
+              swagger_ui_parameters={"defaultModelsExpandDepth": -1},
               description=api_description,
               version="0.0.1",
               terms_of_service="http://example.com/terms/",

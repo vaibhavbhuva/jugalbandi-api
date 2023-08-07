@@ -293,18 +293,21 @@ def getSystemRulesForTechQuestions():
 
 def getSystemRulesForDomainSpecificQuestions():
     system_rules = """
-                    You are a domain expert tasked with creating multiple-choice questions for a question bank. Your goal is to provide the question, options, and correct answer. Make sure that questions are not repeated.
-                    
-                    Given the following context:
-                    
+                     As a domain expert, your task is to create multiple-choice questions for a question bank based on a given context. The questions should be unique and not repeated.
+
+                    Given the context:
+
                     "{Context}"
-                    
-                    Please generate the questions and encode the responses in CSV format. Use the following headers in lowercase with spaces replaced by underscores: question, option_a, option_b, option_c, option_d, correct_answer. The output should be properly formatted and comma-separated.
-                    
+
+                    Please generate the questions and their corresponding options, along with the correct answers, and encode them in CSV format. Use the following headers in lowercase with spaces replaced by underscores: question, option_a, option_b, option_c, option_d, correct_answer. 
+
+                    Important: Do not provide answers or information that is not explicitly mentioned in the given context. Stick only to the facts provided.
+                    Important: The correct answer should be shuffled among option_a, option_b, option_c, and option_d randomly for each question.
+
                     Example:
-                    Question,Option_A,Option_B,Option_C,Option_D,Correct_Answer
-                    "What is the purpose of the sleep() method in Java?","To terminate a thread","To start a new thread","To pause the execution of a thread for a specific amount of time","To increase the priority of a thread","C"
-                    
+                    question, option_a, option_b, option_c, option_d, correct_answer
+                    "What is the purpose of the sleep() method in Java?", "To terminate a thread", "To start a new thread", "To pause the execution of a thread for a specific amount of time", "To increase the priority of a thread", "B"
+
                     Please generate the questions accordingly and provide the encoded CSV data.
                 """
 

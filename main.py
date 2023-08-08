@@ -21,38 +21,24 @@ from fastapi.responses import Response
 from sse_starlette.sse import EventSourceResponse
 
 api_description = """
-Jugalbandi.ai has a vector datastore that allows you to get factual Q&A over a document set.
-
-API is currently available in it's alpha version. We are currently gaining test data to improve our systems and 
-predictions. 🚀
-
-## Factual Q&A over large documents
+## Question generation from large documents
 
 You will be able to:
 
-* **Upload documents** (_implemented_).
-Allows you to upload documents and create a vector space for semantic similarity search. Basically a better search 
-than Ctrl+F
+* **Upload documents**: 
+This API allows you to upload your domains specific documents and generats a unique identifier(UUID) against it.
 
-* **Factual Q&A** (_implemented_).
-Allows you to pass uuid for a document set and ask a question for factual response over it.
+* **Question generation**:
+This API allows you to generate MCQ question & anwser in a CSV format for the given UUID generated from the upload API.
 """
 
-app = FastAPI(title="Jugalbandi.ai",
+app = FastAPI(title="Question Generation",
             #   docs_url=None,  # Swagger UI: disable it by setting docs_url=None
               redoc_url=None, # ReDoc : disable it by setting docs_url=None
               swagger_ui_parameters={"defaultModelsExpandDepth": -1},
               description=api_description,
-              version="0.0.1",
-              terms_of_service="http://example.com/terms/",
-              contact={
-                  "name": "Karanraj - Major contributor in Jugalbandi.ai",
-                  "email": "karanraj.m@thoughtworks.com",
-              },
-              license_info={
-                  "name": "MIT License",
-                  "url": "https://www.jugalbandi.ai/",
-              }, )
+              version="1.0.0"
+              )
 ttl = int(os.environ.get("CACHE_TTL", 86400)) 
 cache = TTLCache(maxsize=100, ttl=ttl)
 
@@ -174,7 +160,7 @@ async def query_using_langchain(uuid_number: str, query_string: str, username: s
         return response
 
 
-@app.post("/upload-files", tags=["Document Store"])
+@app.post("/upload-files", tags=["API for uploading documents - (Text / PDF / Zip supported)"])
 async def upload_files(description: str, files: List[UploadFile] = File(...), username: str = Depends(get_current_username)):
     load_dotenv()
     uuid_number = str(uuid.uuid1())
@@ -384,7 +370,7 @@ async def query_using_langchain_with_gpt4_streaming(uuid_number: str, query_stri
 
         return streaming_response
     
-@app.get("/query-with-langchain-gpt4-mcq", tags=["Q&A over Document Store"], response_class = CSVResponse)
+@app.get("/generate-mcq-questions", tags=["API for generating MCQ questions"], response_class = CSVResponse)
 async def query_using_langchain_with_gpt4_mcq(uuid_number: str, query_string: str, username: str = Depends(get_current_username)) -> CSVResponse:
     caching = False # disabled caching
     cache_key = uuid_number.replace(",", "_").strip()

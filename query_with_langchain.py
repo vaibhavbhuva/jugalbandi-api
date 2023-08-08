@@ -1,3 +1,4 @@
+import logging
 import openai
 from gpt_index import SimpleDirectoryReader
 from langchain.chains.qa_with_sources import load_qa_with_sources_chain
@@ -10,6 +11,11 @@ from cloud_storage import *
 import shutil
 import array as arr
 
+logging.basicConfig(
+    level=logging.INFO,
+    datefmt='%Y-%m-%d %H:%M:%S',
+)
+logger = logging.getLogger('jugalbandi_api')
 
 promptsInMemoryDomainQues = []
 promptsInMemoryTechQues = []
@@ -207,16 +213,20 @@ def querying_with_langchain_gpt4_streaming(uuid_number, query):
 def querying_with_langchain_gpt4_mcq(uuid_number, query, doCache):
     if uuid_number.lower() == "tech":
         try:
+            logger.info('************** Technology Specific **************')
             system_rules = getSystemRulesForTechQuestions() 
             prompts = getPromptsForGCP(doCache, query, system_rules, promptsInMemoryTechQues)
+            logger.info(prompts)  
             res = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo-16k",
                 messages = promptsInMemoryTechQues if doCache else prompts,
             )
             respMsg = res["choices"][0]["message"]["content"]
-            print('===========>', respMsg)
+            logger.info(respMsg)
             if doCache:
-                promptsInMemoryTechQues.append({"role":"assistant", "content":respMsg});
+                promptsInMemoryTechQues.append({"role":"assistant", "content":respMsg})
+            logger.info('************** Questions **************')
+            logger.info(respMsg)  
             return respMsg, "", "", None, 200
         except openai.error.RateLimitError as e:
             error_message = f"OpenAI API request exceeded rate limit: {e}"
@@ -229,6 +239,7 @@ def querying_with_langchain_gpt4_mcq(uuid_number, query, doCache):
             status_code = 500
         return None, None, None, error_message, status_code
     else:
+        logger.info('************** Domain Specific **************')
         uuid_number = uuid_number.split(",")
         total_count = 0
         for uuid in uuid_number:
@@ -248,14 +259,15 @@ def querying_with_langchain_gpt4_mcq(uuid_number, query, doCache):
                 system_rules = system_rules.format(Context=context)
 
                 prompts = getPromptsForGCP(doCache, query, system_rules,  promptsInMemoryDomainQues)
-                    
+                logger.info(prompts)    
                 res = openai.ChatCompletion.create(
                     model="gpt-3.5-turbo-16k",
                     messages = promptsInMemoryDomainQues if doCache else prompts,
                 )
 
                 respMsg = res["choices"][0]["message"]["content"]
-                print('===========>', respMsg)
+                logger.info('************** Questions **************')
+                logger.info(respMsg)    
                 if doCache:
                     promptsInMemoryDomainQues.append({"role":"assistant", "content":respMsg})
                 return respMsg, "", "", None, 200

@@ -385,7 +385,8 @@ async def query_using_langchain_with_gpt4_streaming(uuid_number: str, query_stri
         return streaming_response
     
 @app.get("/query-with-langchain-gpt4-mcq", tags=["Q&A over Document Store"], response_class = CSVResponse)
-async def query_using_langchain_with_gpt4_mcq(uuid_number: str, query_string: str, caching: bool, username: str = Depends(get_current_username)) -> CSVResponse:
+async def query_using_langchain_with_gpt4_mcq(uuid_number: str, query_string: str, username: str = Depends(get_current_username)) -> CSVResponse:
+    caching = False # disabled caching
     cache_key = uuid_number.replace(",", "_").strip()
     lowercase_query_string = query_string.lower() + cache_key
     if lowercase_query_string in cache:

@@ -25,11 +25,11 @@ api_description = """
 
 You will be able to:
 
-* **Upload documents**: 
-This API allows you to upload your domains specific documents and generats a unique identifier(UUID) against it.
+* **Upload Information**: 
+This API allows you to upload your domain/context  specific documents and generate a unique identifier(UUID) for it.
 
 * **Question generation**:
-This API allows you to generate MCQ question & anwser in a CSV format for the given UUID generated from the upload API.
+This API allows you to generate MCQ questions along with the right answer in a CSV format for the given UUID.
 """
 
 app = FastAPI(title="Question Generation",

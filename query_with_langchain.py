@@ -9,7 +9,8 @@ from langchain.vectorstores import FAISS
 from langchain import PromptTemplate, OpenAI, LLMChain
 from cloud_storage import *
 import shutil
-import array as arr
+
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -240,15 +241,15 @@ def querying_with_langchain_gpt4_mcq(uuid_number, query, doCache):
         return None, None, None, error_message, status_code
     else:
         logger.info('************** Domain Specific **************')
-        uuid_number = uuid_number.split(",")
+        uuid_numbers = uuid_number.split(",")
         total_count = 0
-        for uuid in uuid_number:
+        for uuid in uuid_numbers:
             files_count = read_langchain_index_files(uuid)
             total_count = total_count + files_count
         if total_count >= 2:
             try:
                 all_documents = []
-                for uuid in uuid_number:
+                for uuid in uuid_numbers:
                     search_index = FAISS.load_local(uuid, OpenAIEmbeddings())
                     documents = search_index.similarity_search(query, k=5)
                     all_documents = all_documents + documents 
@@ -270,7 +271,12 @@ def querying_with_langchain_gpt4_mcq(uuid_number, query, doCache):
                 logger.info(respMsg)    
                 if doCache:
                     promptsInMemoryDomainQues.append({"role":"assistant", "content":respMsg})
-                return respMsg, "", "", None, 200
+
+                output_file_path = f"{uuid_number}.csv"
+                csvOutout = csvDifferenceData(output_file_path, respMsg)
+                logger.info('---- Filtered Questions-----')
+                logger.info(csvOutout)
+                return csvOutout, "", "", None, 200
 
             except openai.error.RateLimitError as e:
                 error_message = f"OpenAI API request exceeded rate limit: {e}"
@@ -285,6 +291,41 @@ def querying_with_langchain_gpt4_mcq(uuid_number, query, doCache):
             error_message = "The UUID number is incorrect"
             status_code = 422
         return None, None, None, error_message, status_code
+
+def removeWhitespace(text:str) -> list[str]:
+    return list(map(lambda l : l.strip(),
+                    filter(lambda l : l != '',
+                            text.split('\n'))))
+
+def string_compare_diff(text1: list[str], text2: list[str]) -> list[str]:
+                        result: list[str] = []
+                        for line1 in text1:
+                            if line1 not in text2:
+                                result.append(line1)
+                        return result
+
+def csvDifferenceData(output_file_path: str, respMsg: str) -> str: 
+    new_questions = removeWhitespace(respMsg)[1:]
+    new_questions = list(set(new_questions))
+    if os.path.exists(output_file_path):
+        old_question_file = open(output_file_path, 'r')
+        old_questions = removeWhitespace(old_question_file.read())
+        output = string_compare_diff(new_questions, old_questions)
+        with open(output_file_path, "a") as file:
+            file.write("\n")
+            for item in output:
+                file.write(item + "\n")
+        csv_string = 'question, option_a, option_b, option_c, option_d, correct_answer \n'
+        if output:
+            csv_string += '\n'.join(output)
+        return csv_string
+    else:
+        csv_string = 'question, option_a, option_b, option_c, option_d, correct_answer \n'
+        csv_string += '\n'.join(new_questions)
+        # Write the strings to the file
+        with open(output_file_path, mode='w') as output_file:
+                output_file.write(csv_string)            
+        return csv_string
 
 
 def getSystemRulesForTechQuestions():

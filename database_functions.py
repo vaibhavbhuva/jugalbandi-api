@@ -53,6 +53,17 @@ async def create_schema(engine):
                 error_message TEXT,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
+            CREATE TABLE IF NOT EXISTS questions (
+                id SERIAL PRIMARY KEY,
+                question TEXT NOT NULL,
+                option1 TEXT NOT NULL,
+                option2 TEXT NOT NULL,
+                option3 TEXT NOT NULL,
+                option4 TEXT NOT NULL,
+                answer TEXT NOT NULL,
+                uuid_number TEXT NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
         ''')
 
 
@@ -94,3 +105,23 @@ async def insert_qa_voice_logs(engine, uuid_number, input_language, output_forma
             uuid_number, input_language, output_format, query, query_in_english, paraphrased_query, response,
             response_in_english, audio_output_link, source_text, error_message, datetime.now(pytz.UTC)
         )
+
+async def insert_questions(engine, question, option1, option2, option3, option4, answer, uuid_number):
+    async with engine.acquire() as connection:
+        await connection.execute(
+            f'''
+            INSERT INTO questions 
+            (question, option1, option2, option3, option4, answer, uuid_number) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            ''',
+            question, option1, option2, option3, option4, answer, uuid_number
+        )
+
+async def get_document_store_questions(engine, uuid_number):
+    async with engine.acquire() as connection:
+        return await connection.fetch(
+                f'''SELECT *
+                FROM questions
+                WHERE uuid_number = $1;
+                ''', uuid_number
+            )

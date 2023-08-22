@@ -21,18 +21,18 @@ from fastapi.responses import Response
 from sse_starlette.sse import EventSourceResponse
 
 api_description = """
-## Question generation from large documents
+## Generate context based questions from an extensive collection of documents/ information
 
 You will be able to:
 
 * **Upload Information**: 
-This API allows you to upload your domain/context  specific documents and generate a unique identifier(UUID) for it.
+This API allows you to upload domain specific document/s and generate a unique identifier(UUID) for each of them
 
 * **Question generation**:
-This API allows you to generate MCQ questions along with the right answer in a CSV format for the given UUID.
+This API allows you to generate multiple choice questions (MCQs), along with their right answers, in a CSV format for the given UUID.  This CSV can be downloaded to carry out review/additional refinement/updates as needed.
 """
 
-app = FastAPI(title="Question Generation",
+app = FastAPI(title="Generate context based Questions (MCQ)",
             #   docs_url=None,  # Swagger UI: disable it by setting docs_url=None
               redoc_url=None, # ReDoc : disable it by setting docs_url=None
               swagger_ui_parameters={"defaultModelsExpandDepth": -1},
@@ -160,7 +160,7 @@ async def query_using_langchain(uuid_number: str, query_string: str, username: s
         return response
 
 
-@app.post("/upload-files", tags=["API for uploading documents - (Text / PDF / Zip supported)"])
+@app.post("/upload-files", tags=["API for uploading documents - TXT / PDF "])
 async def upload_files(description: str, files: List[UploadFile] = File(...), username: str = Depends(get_current_username)):
     load_dotenv()
     uuid_number = str(uuid.uuid1())
@@ -370,7 +370,7 @@ async def query_using_langchain_with_gpt4_streaming(uuid_number: str, query_stri
 
         return streaming_response
     
-@app.get("/generate-mcq-questions", tags=["API for generating MCQ questions"], response_class = CSVResponse)
+@app.get("/generate-mcq-questions", tags=["API for generating Multiple Choice Questions"], response_class = CSVResponse)
 async def query_using_langchain_with_gpt4_mcq(uuid_number: str, query_string: str, username: str = Depends(get_current_username)) -> CSVResponse:
     load_dotenv()
     #  engine = await create_engine()
@@ -378,8 +378,8 @@ async def query_using_langchain_with_gpt4_mcq(uuid_number: str, query_string: st
     #  logger.info("********", createdQuestions)
     #  await engine.close()
     caching = False # disabled caching
-    cache_key = uuid_number.replace(",", "_").strip()
-    lowercase_query_string = query_string.lower() + cache_key
+    uuid_number = uuid_number.strip()
+    lowercase_query_string = query_string.lower() + uuid_number
     if lowercase_query_string in cache:
         print("Value in cache", lowercase_query_string)
         return CSVResponse(content=cache[lowercase_query_string])

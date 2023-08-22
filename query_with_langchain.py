@@ -9,6 +9,10 @@ from langchain.vectorstores import FAISS
 from langchain import PromptTemplate, OpenAI, LLMChain
 from cloud_storage import *
 import shutil
+import json
+import csv
+from io import StringIO
+
 
 
 
@@ -241,19 +245,12 @@ def querying_with_langchain_gpt4_mcq(uuid_number, query, doCache):
         return None, None, None, error_message, status_code
     else:
         logger.info('************** Domain Specific **************')
-        uuid_numbers = uuid_number.split(",")
-        total_count = 0
-        for uuid in uuid_numbers:
-            files_count = read_langchain_index_files(uuid)
-            total_count = total_count + files_count
-        if total_count >= 2:
+        files_count = read_langchain_index_files(uuid_number)
+        if files_count == 2:
             try:
-                all_documents = []
-                for uuid in uuid_numbers:
-                    search_index = FAISS.load_local(uuid, OpenAIEmbeddings())
-                    documents = search_index.similarity_search(query, k=5)
-                    all_documents = all_documents + documents 
-                contexts = [document.page_content for document in all_documents]
+                search_index = FAISS.load_local(uuid_number, OpenAIEmbeddings())
+                documents = search_index.similarity_search(query, k=5)
+                contexts = [document.page_content for document in documents]
 
                 system_rules = getSystemRulesForDomainSpecificQuestions()
                 context = "\n\n---\n\n".join(contexts) + "\n\n-----\n\n"
@@ -272,8 +269,8 @@ def querying_with_langchain_gpt4_mcq(uuid_number, query, doCache):
                 if doCache:
                     promptsInMemoryDomainQues.append({"role":"assistant", "content":respMsg})
 
-                output_file_path = f"{uuid_number}.csv"
-                csvOutout = csvDifferenceData(output_file_path, respMsg)
+                csvOutout = jsnoDifferenceData(uuid_number, respMsg) # JSON based duplication solution
+                # csvOutout = csvDifferenceData(uuid_number, respMsg) # CSV based duplication solution
                 logger.info('---- Filtered Questions-----')
                 logger.info(csvOutout)
                 return csvOutout, "", "", None, 200
@@ -285,12 +282,79 @@ def querying_with_langchain_gpt4_mcq(uuid_number, query, doCache):
                 error_message = "Server is overloaded or unable to answer your request at the moment. Please try again later"
                 status_code = 503
             except Exception as e:
-                error_message = str(e.__context__) + " and " + e.__str__()
+                # error_message = str(e.__context__) + " and " + e.__str__()
+                error_message = e.__str__()
                 status_code = 500
         else:
             error_message = "The UUID number is incorrect"
             status_code = 422
         return None, None, None, error_message, status_code
+
+# Load existing data from JSON file
+def load_json_file(filename):
+    try:
+        with open(filename, 'r') as file:
+            return json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+    
+# Compare and add unique data
+def add_unique_data(existing_data, new_data):
+    seen_objects = set(tuple(item.items()) for item in existing_data)
+    unique_data = []
+
+    for item in new_data:
+        obj = tuple(item.items())
+        if obj not in seen_objects:
+            unique_data.append(item)
+            seen_objects.add(obj)
+
+    return unique_data
+
+# Compare and remove duplicate data
+def remove_duplicates(data):
+    seen_objects = set(tuple(item.items()) for item in data)
+    return list(map(lambda t : dict((key,value) for key, value in t), seen_objects))    
+
+# Save data to JSON file
+def save_json_file(filename, data):
+    with open(filename, 'w') as file:
+        json.dump(data, file, indent=4)
+
+# Convert data to CSV format
+def list_to_csv_string(data):
+    output = StringIO()
+    csv_writer = csv.DictWriter(output, fieldnames=data[0].keys())
+
+    csv_writer.writeheader()
+    csv_writer.writerows(data)
+
+    csv_string = output.getvalue()
+    output.close()
+
+    return csv_string
+
+def jsnoDifferenceData(uuid_number: str, questions: str) -> str: 
+    output_file_path = f"{uuid_number}.json"
+    try:
+        parsed_data = json.loads(questions)
+    except:
+        raise Exception("Apologies! I couldn't create questions in a format that's easy to read for you. Please try again.")
+        
+    new_questions = remove_duplicates(parsed_data)
+    existing_questions = load_json_file(output_file_path)
+    unique_data = []
+    if(len(existing_questions) == 0):
+        save_json_file(output_file_path, new_questions)
+        unique_data = new_questions
+    else:
+        unique_data = add_unique_data(existing_questions, new_questions)
+        existing_questions += unique_data
+        save_json_file(output_file_path, existing_questions)
+    
+    logger.info("Data has been updated in the JSON file and return as CSV format.")
+    return list_to_csv_string(unique_data)
+
 
 def removeWhitespace(text:str) -> list[str]:
     return list(map(lambda l : l.strip(),
@@ -304,7 +368,8 @@ def string_compare_diff(text1: list[str], text2: list[str]) -> list[str]:
                                 result.append(line1)
                         return result
 
-def csvDifferenceData(output_file_path: str, respMsg: str) -> str: 
+def csvDifferenceData(uuid_number: str, respMsg: str) -> str: 
+    output_file_path = f"{uuid_number}.csv"
     new_questions = removeWhitespace(respMsg)[1:]
     new_questions = list(set(new_questions))
     if os.path.exists(output_file_path):
@@ -327,7 +392,6 @@ def csvDifferenceData(output_file_path: str, respMsg: str) -> str:
                 output_file.write(csv_string)            
         return csv_string
 
-
 def getSystemRulesForTechQuestions():
     system_rules = """
                     You are a technology expert tasked with creating multiple-choice questions for a question bank. Your goal is to provide the question, options, and correct answer. Make sure that questions are not repeated.
@@ -345,23 +409,26 @@ def getSystemRulesForTechQuestions():
     return system_rules
 
 def getSystemRulesForDomainSpecificQuestions():
+
     system_rules = """
-                     As a domain expert, your task is to create multiple-choice questions for a question bank based on a given context. The questions should be unique and not repeated.
+                    As a domain expert, your task is to generate multiple-choice questions for a question bank based on a given context. 
+                    The questions should be unique and not repeated. The correct answers should be shuffled among the answer options randomly for each question.
 
                     Given the context:
 
                     "{Context}"
 
-                    Please generate the questions and their corresponding options, along with the correct answers, and encode them in CSV format. Use the following headers in lowercase with spaces replaced by underscores: question, option_a, option_b, option_c, option_d, correct_answer. 
-
-                    Important: Do not provide answers or information that is not explicitly mentioned in the given context. Stick only to the facts provided.
-                    Important: The correct answer should be shuffled among option_a, option_b, option_c, and option_d randomly for each question.
-
-                    Example:
-                    question, option_a, option_b, option_c, option_d, correct_answer
-                    "What is the purpose of the sleep() method in Java?", "To terminate a thread", "To start a new thread", "To pause the execution of a thread for a specific amount of time", "To increase the priority of a thread", "B"
-
-                    Please generate the questions accordingly and provide the encoded CSV data.
+                    Here are the specific instructions that you need to follow:
+                        - Do not provide answers or information that is not explicitly mentioned in the given context. Stick only to the facts provided.
+                        - The questions and answer options should be encoded in JSON format. The JSON object array will consist of the following fields:
+                            - question: The text of the question.
+                            - option_a: The first answer option.
+                            - option_b: The second answer option.
+                            - option_c: The third answer option.
+                            - option_d: The fourth answer option.
+                            - correct_answer: The correct answer index as A, B, C, or D.
+                        
+                    Please generate the questions accordingly and Provide the questions only in JSON object array format, without any other responses.
                 """
 
     return system_rules

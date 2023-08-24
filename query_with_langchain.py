@@ -12,7 +12,7 @@ import shutil
 import json
 import csv
 from io import StringIO
-
+import time
 
 
 
@@ -257,12 +257,13 @@ def querying_with_langchain_gpt4_mcq(uuid_number, query, doCache):
                 system_rules = system_rules.format(Context=context)
 
                 prompts = getPromptsForGCP(doCache, query, system_rules,  promptsInMemoryDomainQues)
-                logger.info(prompts)    
+                logger.info(prompts)
+                start_time = time.time()
                 res = openai.ChatCompletion.create(
                     model="gpt-3.5-turbo-16k",
                     messages = promptsInMemoryDomainQues if doCache else prompts,
                 )
-
+                logger.info('********* OPENAI TOTAL TIME TOOK **********>>>>>' , time.time() - start_time)  
                 respMsg = res["choices"][0]["message"]["content"]
                 logger.info('************** Questions **************')
                 logger.info(respMsg)    

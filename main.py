@@ -19,6 +19,7 @@ from zipfile import ZipFile
 from query_with_tfidf import querying_with_tfidf
 from fastapi.responses import Response
 from sse_starlette.sse import EventSourceResponse
+import time
 
 api_description = """
 ## Generate context based questions from an extensive collection of documents/ information
@@ -371,8 +372,9 @@ async def query_using_langchain_with_gpt4_streaming(uuid_number: str, query_stri
         return streaming_response
     
 @app.get("/generate-mcq-questions", tags=["API for generating Multiple Choice Questions"], response_class = CSVResponse)
-async def query_using_langchain_with_gpt4_mcq(uuid_number: str, query_string: str, username: str = Depends(get_current_username)) -> CSVResponse:
+async def query_using_langchain_with_gpt4_mcq(uuid_number: str, query_string: str, skip_cache : bool = False, username: str = Depends(get_current_username)) -> CSVResponse:
     load_dotenv()
+    start_time = time.time()
     #  engine = await create_engine()
     #  createdQuestions = await get_document_store_questions(engine=engine, uuid_number=uuid_number)
     #  logger.info("********", createdQuestions)
@@ -380,7 +382,7 @@ async def query_using_langchain_with_gpt4_mcq(uuid_number: str, query_string: st
     caching = False # disabled caching
     uuid_number = uuid_number.strip()
     lowercase_query_string = query_string.lower() + uuid_number
-    if lowercase_query_string in cache:
+    if (lowercase_query_string in cache) and (not skip_cache):
         print("Value in cache", lowercase_query_string)
         return CSVResponse(content=cache[lowercase_query_string])
     else:
@@ -390,7 +392,7 @@ async def query_using_langchain_with_gpt4_mcq(uuid_number: str, query_string: st
             query_string,
             caching
         )
-
+        logger.info('********* TOTAL TIME TOOK **********>>>>>' , time.time() - start_time)
         if status_code != 200:
             raise HTTPException(status_code=status_code, detail=error_message)
         

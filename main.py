@@ -375,10 +375,6 @@ async def query_using_langchain_with_gpt4_streaming(uuid_number: str, query_stri
 async def query_using_langchain_with_gpt4_mcq(uuid_number: str, query_string: str, skip_cache : bool = False, username: str = Depends(get_current_username)) -> CSVResponse:
     load_dotenv()
     start_time = time.time()
-    #  engine = await create_engine()
-    #  createdQuestions = await get_document_store_questions(engine=engine, uuid_number=uuid_number)
-    #  logger.info("********", createdQuestions)
-    #  await engine.close()
     caching = False # disabled caching
     uuid_number = uuid_number.strip()
     lowercase_query_string = query_string.lower() + uuid_number
@@ -392,7 +388,8 @@ async def query_using_langchain_with_gpt4_mcq(uuid_number: str, query_string: st
             query_string,
             caching
         )
-        logger.info('********* TOTAL TIME TOOK **********>>>>>' , time.time() - start_time)
+        end_time = time.time() - start_time
+        logger.info(f"********* TOTAL TIME TOOK **********>>>>> {end_time}")
         if status_code != 200:
             raise HTTPException(status_code=status_code, detail=error_message)
         

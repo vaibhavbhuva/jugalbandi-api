@@ -263,7 +263,8 @@ def querying_with_langchain_gpt4_mcq(uuid_number, query, doCache):
                     model="gpt-3.5-turbo-16k",
                     messages = promptsInMemoryDomainQues if doCache else prompts,
                 )
-                logger.info('********* OPENAI TOTAL TIME TOOK **********>>>>>' , time.time() - start_time)  
+                end_time = time.time() - start_time
+                logger.info(f"********* TOTAL TIME TOOK **********>>>>> {end_time}")
                 respMsg = res["choices"][0]["message"]["content"]
                 logger.info('************** Questions **************')
                 logger.info(respMsg)    
@@ -290,6 +291,19 @@ def querying_with_langchain_gpt4_mcq(uuid_number, query, doCache):
             error_message = "The UUID number is incorrect"
             status_code = 422
         return None, None, None, error_message, status_code
+
+
+def create_directory_from_filepath(filepath):
+    directory_path = os.path.dirname(filepath)
+    
+    if not os.path.exists(directory_path):
+        try:
+            os.makedirs(directory_path)
+            print(f"Directory '{directory_path}' created successfully.")
+        except OSError as e:
+            print(f"Error creating directory '{directory_path}': {e}")
+    else:
+        print(f"Directory '{directory_path}' already exists.")
 
 # Load existing data from JSON file
 def load_json_file(filename):
@@ -336,7 +350,8 @@ def list_to_csv_string(data):
     return csv_string
 
 def jsnoDifferenceData(uuid_number: str, questions: str) -> str: 
-    output_file_path = f"{uuid_number}.json"
+    output_file_path = f"questions_cache/{uuid_number}.json"
+    create_directory_from_filepath(output_file_path)
     try:
         parsed_data = json.loads(questions)
     except:
@@ -370,7 +385,8 @@ def string_compare_diff(text1: list[str], text2: list[str]) -> list[str]:
                         return result
 
 def csvDifferenceData(uuid_number: str, respMsg: str) -> str: 
-    output_file_path = f"{uuid_number}.csv"
+    output_file_path = f"questions_cache/{uuid_number}.csv"
+    create_directory_from_filepath(output_file_path)
     new_questions = removeWhitespace(respMsg)[1:]
     new_questions = list(set(new_questions))
     if os.path.exists(output_file_path):

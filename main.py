@@ -3,7 +3,7 @@ from enum import Enum
 from typing import List
 from cachetools import TTLCache
 import secrets
-from fastapi import Depends, FastAPI, UploadFile, File, HTTPException
+from fastapi import Depends, FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from starlette.status import HTTP_401_UNAUTHORIZED
 from fastapi.middleware.cors import CORSMiddleware
@@ -52,6 +52,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+class FeedbackType(str, Enum):
+    up = "up"
+    down = "down"
 
 class CSVResponse(Response):
     media_type = "text/csv"
@@ -395,3 +399,41 @@ async def query_using_langchain_with_gpt4_mcq(uuid_number: str, query_string: st
         
         cache[lowercase_query_string] = answer
         return CSVResponse(answer)
+
+@app.get("/generate_answers", tags=["API for generating answers"])
+async def query_using_langchain_with_gpt3(uuid_number: str, query_string: str, username: str = Depends(get_current_username)):
+    uuid_number = uuid_number.strip()
+    lowercase_query_string = query_string.lower() + uuid_number
+    if lowercase_query_string in cache:
+        print("Value in cache", lowercase_query_string)
+        return cache[lowercase_query_string]
+    else:
+        load_dotenv()
+        answer, source_text, paraphrased_query, error_message, status_code = querying_with_langchain_gpt3(uuid_number, query_string)
+        engine = await create_engine()
+        inserted_id = await insert_sb_qa_logs(engine=engine, model_name="gpt-3.5-turbo-16k", uuid_number=uuid_number, query=query_string,
+                            paraphrased_query=None, response=answer, source_text=source_text, error_message=error_message)
+        print(inserted_id)
+        await engine.close()
+        if status_code != 200:
+            raise HTTPException(status_code=status_code, detail=error_message)
+
+        response = {
+            "id": inserted_id,
+            "query": query_string,
+            "answer": answer,
+            "source_text" :source_text
+        }
+        cache[lowercase_query_string] = response
+        return response
+    
+@app.put("/user_feedback", tags=["API for recording user feedback for Q&A"])
+async def feedback_endpoint(question_id: int = Form(...), feedback_type: FeedbackType = Form(...), username: str = Depends(get_current_username)):
+    load_dotenv()
+    engine = await create_engine()
+    success_message, error_message, status_code = await record_user_feedback(engine, question_id, feedback_type.value)
+    await engine.close()
+    if status_code != 200:
+        raise HTTPException(status_code=status_code, detail=error_message)
+
+    return {"message": f"Feedback recorded for question ID {question_id} with feedback type {feedback_type}"}

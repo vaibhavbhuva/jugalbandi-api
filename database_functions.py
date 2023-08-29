@@ -53,15 +53,17 @@ async def create_schema(engine):
                 error_message TEXT,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
-            CREATE TABLE IF NOT EXISTS questions (
+            CREATE TABLE IF NOT EXISTS sb_qa_logs (
                 id SERIAL PRIMARY KEY,
-                question TEXT NOT NULL,
-                option1 TEXT NOT NULL,
-                option2 TEXT NOT NULL,
-                option3 TEXT NOT NULL,
-                option4 TEXT NOT NULL,
-                answer TEXT NOT NULL,
-                uuid_number TEXT NOT NULL,
+                model_name TEXT DEFAULT 'gtp3',
+                uuid_number TEXT,
+                query TEXT,
+                paraphrased_query TEXT,
+                response TEXT,
+                source_text TEXT,
+                error_message TEXT,
+                upvotes INTEGER DEFAULT 0,
+                downvotes INTEGER DEFAULT 0,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
         ''')
@@ -106,22 +108,16 @@ async def insert_qa_voice_logs(engine, uuid_number, input_language, output_forma
             response_in_english, audio_output_link, source_text, error_message, datetime.now(pytz.UTC)
         )
 
-async def insert_questions(engine, question, option1, option2, option3, option4, answer, uuid_number):
+async def insert_sb_qa_logs(engine, model_name, uuid_number, query, paraphrased_query, response, source_text,
+                         error_message):
     async with engine.acquire() as connection:
         await connection.execute(
-            f'''
-            INSERT INTO questions 
-            (question, option1, option2, option3, option4, answer, uuid_number) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            '''
+            INSERT INTO sb_qa_logs 
+            (model_name, uuid_number, query, paraphrased_query, response, source_text, error_message, created_at) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             ''',
-            question, option1, option2, option3, option4, answer, uuid_number
+            model_name, uuid_number, query, paraphrased_query, response, source_text, error_message, datetime.now(pytz.UTC)
         )
-
-async def get_document_store_questions(engine, uuid_number):
-    async with engine.acquire() as connection:
-        return await connection.fetch(
-                f'''SELECT *
-                FROM questions
-                WHERE uuid_number = $1;
-                ''', uuid_number
-            )
+        last_inserted_id = await connection.fetchval('SELECT LASTVAL()')
+        return last_inserted_id

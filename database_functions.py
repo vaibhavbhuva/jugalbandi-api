@@ -57,6 +57,7 @@ async def create_schema(engine):
                 id SERIAL PRIMARY KEY,
                 model_name TEXT DEFAULT 'gtp3',
                 uuid_number TEXT,
+                question_id TEXT,
                 query TEXT,
                 paraphrased_query TEXT,
                 response TEXT,
@@ -108,16 +109,14 @@ async def insert_qa_voice_logs(engine, uuid_number, input_language, output_forma
             response_in_english, audio_output_link, source_text, error_message, datetime.now(pytz.UTC)
         )
 
-async def insert_sb_qa_logs(engine, model_name, uuid_number, query, paraphrased_query, response, source_text,
+async def insert_sb_qa_logs(engine, model_name, uuid_number, question_id, query, paraphrased_query, response, source_text,
                          error_message):
     async with engine.acquire() as connection:
         await connection.execute(
             '''
             INSERT INTO sb_qa_logs 
-            (model_name, uuid_number, query, paraphrased_query, response, source_text, error_message, created_at) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            (model_name, uuid_number,question_id, query, paraphrased_query, response, source_text, error_message, created_at) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             ''',
-            model_name, uuid_number, query, paraphrased_query, response, source_text, error_message, datetime.now(pytz.UTC)
+            model_name, uuid_number, question_id, query, paraphrased_query, response, source_text, error_message, datetime.now(pytz.UTC)
         )
-        last_inserted_id = await connection.fetchval('SELECT LASTVAL()')
-        return last_inserted_id

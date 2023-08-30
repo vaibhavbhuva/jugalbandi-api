@@ -409,17 +409,18 @@ async def query_using_langchain_with_gpt3(uuid_number: str, query_string: str, u
         return cache[lowercase_query_string]
     else:
         load_dotenv()
+        question_id = str(uuid.uuid1())
         answer, source_text, paraphrased_query, error_message, status_code = querying_with_langchain_gpt3(uuid_number, query_string)
         engine = await create_engine()
-        inserted_id = await insert_sb_qa_logs(engine=engine, model_name="gpt-3.5-turbo-16k", uuid_number=uuid_number, query=query_string,
-                            paraphrased_query=None, response=answer, source_text=source_text, error_message=error_message)
-        print(inserted_id)
+        await insert_sb_qa_logs(engine=engine, model_name="gpt-3.5-turbo-16k", uuid_number=uuid_number, question_id=question_id,
+                                               query=query_string, paraphrased_query=None, response=answer, source_text=source_text, error_message=error_message)
         await engine.close()
+        logger.info(f"Question ID =====> {question_id}")
         if status_code != 200:
             raise HTTPException(status_code=status_code, detail=error_message)
 
         response = {
-            "id": inserted_id,
+            "id": question_id,
             "query": query_string,
             "answer": answer,
             "source_text" :source_text
@@ -428,7 +429,7 @@ async def query_using_langchain_with_gpt3(uuid_number: str, query_string: str, u
         return response
     
 @app.put("/user_feedback", tags=["API for recording user feedback for Q&A"])
-async def feedback_endpoint(question_id: int = Form(...), feedback_type: FeedbackType = Form(...), username: str = Depends(get_current_username)):
+async def feedback_endpoint(question_id: str = Form(...), feedback_type: FeedbackType = Form(...), username: str = Depends(get_current_username)):
     load_dotenv()
     engine = await create_engine()
     success_message, error_message, status_code = await record_user_feedback(engine, question_id, feedback_type.value)

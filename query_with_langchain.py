@@ -329,12 +329,12 @@ def querying_with_langchain_gpt3(uuid_number, query):
 async def record_user_feedback(engine, qa_id, feedback_type):
     try:
        async with engine.acquire() as connection:
-            record_exists = await connection.fetchval("SELECT id FROM sb_qa_logs WHERE id = $1", qa_id)
+            record_exists = await connection.fetchval("SELECT id FROM sb_qa_logs WHERE question_id = $1", qa_id)
             if record_exists is not None:
                 if feedback_type.lower() == "up":
-                    await connection.execute("UPDATE sb_qa_logs SET upvotes = upvotes + 1 WHERE id = $1", qa_id)
+                    await connection.execute("UPDATE sb_qa_logs SET upvotes = upvotes + 1 WHERE question_id = $1", qa_id)
                 elif feedback_type.lower() == "down":
-                    await connection.execute("UPDATE sb_qa_logs SET downvotes = downvotes + 1 WHERE id = $1", qa_id)
+                    await connection.execute("UPDATE sb_qa_logs SET downvotes = downvotes + 1 WHERE question_id = $1", qa_id)
                 return 'OK', None, 200
             else:
                  return None, f"Record with ID {qa_id} not found", 404

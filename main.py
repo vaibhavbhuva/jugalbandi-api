@@ -401,7 +401,7 @@ async def query_using_langchain_with_gpt4_mcq(uuid_number: str, query_string: st
         return CSVResponse(answer)
 
 @app.get("/generate_answers", tags=["API for generating answers"])
-async def query_using_langchain_with_gpt3(uuid_number: str, query_string: str, username: str = Depends(get_current_username)):
+async def query_using_langchain_with_gpt3(uuid_number: str, query_string: str):
     uuid_number = uuid_number.strip()
     lowercase_query_string = query_string.lower() + uuid_number
     if lowercase_query_string in cache:
@@ -429,7 +429,7 @@ async def query_using_langchain_with_gpt3(uuid_number: str, query_string: str, u
         return response
     
 @app.put("/user_feedback", tags=["API for recording user feedback for Q&A"])
-async def feedback_endpoint(question_id: str = Form(...), feedback_type: FeedbackType = Form(...), username: str = Depends(get_current_username)):
+async def feedback_endpoint(question_id: str = Form(...), feedback_type: FeedbackType = Form(...)):
     load_dotenv()
     engine = await create_engine()
     success_message, error_message, status_code = await record_user_feedback(engine, question_id, feedback_type.value)

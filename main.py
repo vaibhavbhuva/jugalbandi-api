@@ -401,10 +401,10 @@ async def query_using_langchain_with_gpt4_mcq(uuid_number: str, query_string: st
         return CSVResponse(answer)
 
 @app.get("/generate_answers", tags=["API for generating answers"])
-async def query_using_langchain_with_gpt3(uuid_number: str, query_string: str):
+async def query_using_langchain_with_gpt3(uuid_number: str, query_string: str, skip_cache : bool = False):
     uuid_number = uuid_number.strip()
     lowercase_query_string = query_string.lower() + uuid_number
-    if lowercase_query_string in cache:
+    if (lowercase_query_string in cache) and (not skip_cache):
         print("Value in cache", lowercase_query_string)
         return cache[lowercase_query_string]
     else:

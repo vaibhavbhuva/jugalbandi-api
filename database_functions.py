@@ -4,13 +4,15 @@ from datetime import datetime
 import pytz
 
 
-async def create_engine(timeout=5):
+async def create_engine(timeout=60):
     engine = await asyncpg.create_pool(
         host=os.getenv('DATABASE_IP'),
         port=os.getenv('DATABASE_PORT'),
         user=os.getenv('DATABASE_USERNAME'),
         password=os.getenv('DATABASE_PASSWORD'),
-        database=os.getenv('DATABASE_NAME'), max_inactive_connection_lifetime=timeout
+        database=os.getenv('DATABASE_NAME'), max_inactive_connection_lifetime=timeout,
+        max_size=20,
+        min_size=10
     )
     await create_schema(engine)
     return engine

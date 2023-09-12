@@ -44,6 +44,7 @@ ttl = int(os.environ.get("CACHE_TTL", 86400))
 cache = TTLCache(maxsize=100, ttl=ttl)
 
 security = HTTPBasic()
+db_engine = None
 
 app.add_middleware(
     CORSMiddleware,
@@ -52,6 +53,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+async def startup_event():
+    logger.info('Invoking startup_event')
+    load_dotenv()
+    global db_engine  # Declare db_engine as global
+    db_engine = await create_engine()
+    logger.info('startup_event : Engine created')
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    logger.info('Invoking shutdown_event')
+    load_dotenv()
+    await db_engine.close()
+    logger.info('shutdown_event : Engine closed')
+
 
 class FeedbackType(str, Enum):
     up = "up"
@@ -204,10 +221,10 @@ async def upload_files(description: str, files: List[UploadFile] = File(...), us
     if status_code == 200:
         error_message, status_code = langchain_indexing(uuid_number)
 
-    engine = await create_engine()
-    await insert_document_store_logs(engine=engine, description=description, uuid_number=uuid_number,
+    # engine = await create_engine()
+    await insert_document_store_logs(engine=db_engine, description=description, uuid_number=uuid_number,
                                      documents_list=files_list, error_message=error_message)
-    await engine.close()
+    # await engine.close()
 
     if status_code != 200:
         raise HTTPException(status_code=status_code, detail=error_message)
@@ -411,10 +428,10 @@ async def query_using_langchain_with_gpt3(uuid_number: str, query_string: str, s
         load_dotenv()
         question_id = str(uuid.uuid1())
         answer, source_text, paraphrased_query, error_message, status_code = querying_with_langchain_gpt3(uuid_number, query_string)
-        engine = await create_engine()
-        await insert_sb_qa_logs(engine=engine, model_name="gpt-3.5-turbo-16k", uuid_number=uuid_number, question_id=question_id,
+        # engine = await create_engine()
+        await insert_sb_qa_logs(engine=db_engine, model_name="gpt-3.5-turbo-16k", uuid_number=uuid_number, question_id=question_id,
                                                query=query_string, paraphrased_query=None, response=answer, source_text=source_text, error_message=error_message)
-        await engine.close()
+        # await engine.close()
         logger.info(f"Question ID =====> {question_id}")
         if status_code != 200:
             raise HTTPException(status_code=status_code, detail=error_message)
@@ -431,9 +448,9 @@ async def query_using_langchain_with_gpt3(uuid_number: str, query_string: str, s
 @app.put("/user_feedback", tags=["API for recording user feedback for Q&A"])
 async def feedback_endpoint(question_id: str = Form(...), feedback_type: FeedbackType = Form(...)):
     load_dotenv()
-    engine = await create_engine()
-    success_message, error_message, status_code = await record_user_feedback(engine, question_id, feedback_type.value)
-    await engine.close()
+    # engine = await create_engine()
+    success_message, error_message, status_code = await record_user_feedback(db_engine, question_id, feedback_type.value)
+    # await engine.close()
     if status_code != 200:
         raise HTTPException(status_code=status_code, detail=error_message)
 

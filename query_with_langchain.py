@@ -15,9 +15,10 @@ from io import StringIO
 import time
 
 
-
+log_format = '%(asctime)s - %(thread)d - %(threadName)s - %(name)s - %(levelname)s - %(message)s'
 logging.basicConfig(
     level=logging.INFO,
+    format=log_format,
     datefmt='%Y-%m-%d %H:%M:%S',
 )
 logger = logging.getLogger('jugalbandi_api')
@@ -298,6 +299,8 @@ def querying_with_langchain_gpt3(uuid_number, query):
         try:
             search_index = FAISS.load_local(uuid_number, OpenAIEmbeddings())
             documents = search_index.similarity_search(query, k=5)
+            logger.info('========== FAISS: Similarity Search indexed the documents ===========')
+            logger.info(documents)
             contexts = [document.page_content for document in documents]
             augmented_query = "\n\n---\n\n".join(contexts) + "\n\n-----\n\n" + query
             system_rules = "You are a helpful assistant who helps with answering questions based on the provided information. If the information cannot be found in the text provided, you admit that I don't know"

@@ -229,7 +229,7 @@ async def upload_files(description: str, files: List[UploadFile] = File(...), us
     if status_code != 200:
         raise HTTPException(status_code=status_code, detail=error_message)
 
-    index_files = ["index.json", "index.faiss", "index.pkl"]
+    index_files = ["index.faiss", "index.pkl"]  # original:  ["index.json", "index.faiss", "index.pkl"]
     for index_file in index_files:
         upload_file(uuid_number, index_file)
         os.remove(index_file)

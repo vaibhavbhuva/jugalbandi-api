@@ -303,7 +303,7 @@ def querying_with_langchain_gpt3(uuid_number, query):
             logger.info(documents)
             contexts = [document.page_content for document in documents]
             augmented_query = "\n\n---\n\n".join(contexts) + "\n\n-----\n\n" + query
-            system_rules = "You are a helpful assistant who helps with answering questions based on the provided information. If the information cannot be found in the text provided, you admit that I don't know. Your answer will be a summary of the information and will be a minimum of 200 words and maximum of 400 words."
+            system_rules = "You are a helpful assistant who helps with answering questions based on the provided information. If the information cannot be found in the text provided, you admit that I don't know"
 
             res = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo-16k",

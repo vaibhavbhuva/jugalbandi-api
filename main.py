@@ -217,9 +217,9 @@ async def upload_files(description: str, files: List[UploadFile] = File(...), us
                 file.file.close()
                 shutil.move(file.filename, uuid_number + "/" + file.filename)
 
-    error_message, status_code = gpt_indexing(uuid_number)
-    if status_code == 200:
-        error_message, status_code = langchain_indexing(uuid_number)
+    # error_message, status_code = gpt_indexing(uuid_number)
+    # if status_code == 200:
+    error_message, status_code = langchain_indexing(uuid_number)
 
     # engine = await create_engine()
     await insert_document_store_logs(engine=db_engine, description=description, uuid_number=uuid_number,

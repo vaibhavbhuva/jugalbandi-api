@@ -173,7 +173,7 @@ def querying_with_langchain_gpt4_streaming(uuid_number, query):
             augmented_query = "\n\n---\n\n".join(contexts) + "\n\n-----\n\n" + query
 
             system_rules = "You are a helpful assistant who helps with answering questions based on the provided information. If the information cannot be found in the text provided, you admit that I don't know"
-
+        
             response = openai.ChatCompletion.create(
                 model='gpt-4',
                 messages=[
@@ -302,14 +302,26 @@ def querying_with_langchain_gpt3(uuid_number, query):
             logger.info('========== FAISS: Similarity Search indexed the documents ===========')
             logger.info(documents)
             contexts = [document.page_content for document in documents]
-            augmented_query = "\n\n---\n\n".join(contexts) + "\n\n-----\n\n" + query
-            system_rules = "You are a helpful assistant who helps with answering questions based on the provided information. If the information cannot be found in the text provided, you admit that I don't know"
+
+            system_rules = """You are a helpful AI assistant. Use the following pieces of context to answer the question at the end.
+            Very Important: 
+                - If the question is about writing code use backticks (```) at the front and end of the code snippet and include the language use after the first ticks.
+                - If the anwser conatains single line code use <code> at the front and use </code> end of the code snippet.
+            If you don't know the answer, just say you don't know. DO NOT try to make up an answer.
+            If the question is not related to the context, politely respond that you are tuned to only answer questions that are related to the context. 
+            Use as much detail when as possible when responding.
+
+            {context}
+
+            All answers should be in MARKDOWN (.md) Format and make it title bold:"""
+
+            system_rules = system_rules.format(context=contexts)
 
             res = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo-16k",
                 messages=[
                     {"role": "system", "content": system_rules},
-                    {"role": "user", "content": augmented_query},
+                    {"role": "user", "content": query},
                 ],
             )
             return res["choices"][0]["message"]["content"], "", "", None, 200

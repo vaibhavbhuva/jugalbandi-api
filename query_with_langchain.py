@@ -298,11 +298,12 @@ def querying_with_langchain_gpt3(uuid_number, query):
     if files_count == 2:
         try:
             search_index = FAISS.load_local(uuid_number, OpenAIEmbeddings())
-            documents = search_index.similarity_search(query, k=5)
+            documents = search_index.similarity_search_with_score(query, k=5)
             logger.info('========== FAISS: Similarity Search indexed the documents ===========')
             logger.info(documents)
-            contexts = [document.page_content for document in documents]
-
+            # contexts = [document.page_content for document in documents]
+            contexts = [document.page_content for tuple in documents for document in tuple if hasattr(document, 'page_content')]
+            contexts = "\n\n---\n\n".join(contexts) + "\n\n-----\n\n"
             system_rules = """You are a friendly assistant to the user who can provide clear and accurate responses to user's questions. 
             Engage users in a friendly and approachable manner, Provide correct and up-to-date information that are clear, concise, and easy to understand. 
             If applicable, direct users to relevant website pages or resources for further information. If the user has additional questions, continue the conversation to assist further. 
@@ -316,11 +317,15 @@ def querying_with_langchain_gpt3(uuid_number, query):
             When responding to questions that require a summarized answer, please ensure the summary remains concise and accurate, limiting it to no more than 100 words while capturing the essential key points
             When facing questions that necessitate simplified answers, make sure the simplification remains concise, accurately encompassing the vital points within a 100-word limit.
             
+            Given the following context:
+            
             {context}
 
-            All answers should be in MARKDOWN (.md) Format and make it title bold:"""
+            All answers should be in MARKDOWN (.md) Format:"""
 
             system_rules = system_rules.format(context=contexts)
+
+            print("system_rulessystem_rule =======> ", system_rules)
 
             res = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo-16k",
@@ -329,7 +334,7 @@ def querying_with_langchain_gpt3(uuid_number, query):
                     {"role": "user", "content": query},
                 ],
             )
-            return res["choices"][0]["message"]["content"], "", "", None, 200
+            return res["choices"][0]["message"]["content"], str(documents), "", None, 200
 
         except openai.error.RateLimitError as e:
             error_message = f"OpenAI API request exceeded rate limit: {e}"

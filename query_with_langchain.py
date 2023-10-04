@@ -302,7 +302,10 @@ def querying_with_langchain_gpt3(uuid_number, query):
             logger.info('========== FAISS: Similarity Search indexed the documents ===========')
             logger.info(documents)
             # contexts = [document.page_content for document in documents]
-            contexts = [document.page_content for tuple in documents for document in tuple if hasattr(document, 'page_content')]
+            contexts =  [document.page_content for document, search_score in documents if search_score < 0.45]
+            if not contexts:
+                return "I'm sorry, but I don't have enough information to provide a specific answer for your question. Please provide more information or context about what you are referring to.", "", "", None, 200
+            
             contexts = "\n\n---\n\n".join(contexts) + "\n\n-----\n\n"
             system_rules = """You are a friendly assistant to the user who can provide clear and accurate responses to user's questions. 
             Engage users in a friendly and approachable manner, Provide correct and up-to-date information that are clear, concise, and easy to understand. 

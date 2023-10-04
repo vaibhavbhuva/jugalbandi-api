@@ -440,7 +440,7 @@ async def query_using_langchain_with_gpt3(uuid_number: str, query_string: str, s
             "id": question_id,
             "query": query_string,
             "answer": answer,
-            "source_text" :source_text
+            "source_text" : ''
         }
         cache[lowercase_query_string] = response
         return response
